@@ -1,0 +1,200 @@
+import {
+  HiOutlineViewGrid,
+  HiOutlineAcademicCap,
+  HiOutlineClipboardList,
+  HiOutlineSupport,
+  HiOutlineUserGroup,
+  HiOutlineIdentification,
+  HiOutlineDocumentReport,
+  HiOutlineUsers,
+  HiOutlineHeart,
+  HiOutlineTrendingUp,
+  HiOutlineCollection,
+  HiOutlineBookOpen,
+  HiOutlineLockClosed,
+  HiOutlineUser,
+  HiOutlineSparkles,
+  HiOutlineKey,
+  HiOutlineCalendar,
+  HiOutlineCreditCard,
+  HiOutlineChat,
+  HiOutlineShieldCheck,
+} from "react-icons/hi";
+
+export const DASHBOARD_TAB_KEYS = {
+  DASHBOARD: "dashboard",
+  PROFILE: "profile",
+  COURSES: "courses",
+  ACCESS_CODES: "accessCodes",
+  CATEGORIES: "categories",
+  PAYMENTS: "payments",
+  ASSIGNMENTS: "assignments",
+  QUIZZES: "quizzes",
+  CURRICULUMS: "curriculums",
+  LEVELS: "levels",
+  SUBJECTS: "subjects",
+  INSTRUCTORS: "instructors",
+  ASSISTANTS: "assistants",
+  STUDENTS: "students",
+  PARENTS: "parents",
+  ADMINS: "admins",
+  SUPPORT: "support",
+  AI_CHATBOT: "aiChatbot",
+  WHATSAPP: "whatsapp",
+  REGISTRATION_OTPS: "registrationOtps",
+};
+
+export const DASHBOARD_TABS = [
+  {
+    key: DASHBOARD_TAB_KEYS.DASHBOARD,
+    path: "dashboard",
+    icon: HiOutlineViewGrid,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.PROFILE,
+    path: "dashboard/profile",
+    icon: HiOutlineUser,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.COURSES,
+    path: "dashboard/courses",
+    icon: HiOutlineAcademicCap,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.ACCESS_CODES,
+    path: "dashboard/access-codes",
+    icon: HiOutlineKey,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.CATEGORIES,
+    path: "dashboard/categories",
+    icon: HiOutlineCalendar,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.PAYMENTS,
+    path: "dashboard/payments",
+    icon: HiOutlineCreditCard,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.ASSIGNMENTS,
+    path: "dashboard/assignments",
+    icon: HiOutlineClipboardList,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.QUIZZES,
+    path: "dashboard/quizzes",
+    icon: HiOutlineDocumentReport,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.CURRICULUMS,
+    path: "dashboard/curriculums",
+    icon: HiOutlineCollection,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.LEVELS,
+    path: "dashboard/levels",
+    icon: HiOutlineTrendingUp,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.SUBJECTS,
+    path: "dashboard/subjects",
+    icon: HiOutlineBookOpen,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.INSTRUCTORS,
+    path: "dashboard/instructors",
+    icon: HiOutlineUserGroup,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.ASSISTANTS,
+    path: "dashboard/assistants",
+    icon: HiOutlineIdentification,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.STUDENTS,
+    path: "dashboard/students",
+    icon: HiOutlineUsers,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.PARENTS,
+    path: "dashboard/parents",
+    icon: HiOutlineHeart,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.ADMINS,
+    path: "dashboard/admins",
+    icon: HiOutlineLockClosed,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.SUPPORT,
+    path: "dashboard/support",
+    icon: HiOutlineSupport,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.AI_CHATBOT,
+    path: "dashboard/ai-chatbot",
+    icon: HiOutlineSparkles,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.WHATSAPP,
+    path: "dashboard/whatsapp",
+    icon: HiOutlineChat,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.REGISTRATION_OTPS,
+    path: "dashboard/registration-otps",
+    icon: HiOutlineShieldCheck,
+  },
+];
+
+export const ROLE_TAB_KEYS = {
+  admin: [
+    DASHBOARD_TAB_KEYS.DASHBOARD,
+    DASHBOARD_TAB_KEYS.PROFILE,
+    DASHBOARD_TAB_KEYS.COURSES,
+    DASHBOARD_TAB_KEYS.ACCESS_CODES,
+    DASHBOARD_TAB_KEYS.CATEGORIES,
+    DASHBOARD_TAB_KEYS.PAYMENTS,
+    DASHBOARD_TAB_KEYS.ASSIGNMENTS,
+    DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.CURRICULUMS,
+    DASHBOARD_TAB_KEYS.LEVELS,
+    DASHBOARD_TAB_KEYS.SUBJECTS,
+    DASHBOARD_TAB_KEYS.INSTRUCTORS,
+    DASHBOARD_TAB_KEYS.ASSISTANTS,
+    DASHBOARD_TAB_KEYS.STUDENTS,
+    DASHBOARD_TAB_KEYS.PARENTS,
+    DASHBOARD_TAB_KEYS.ADMINS,
+    DASHBOARD_TAB_KEYS.SUPPORT,
+    DASHBOARD_TAB_KEYS.AI_CHATBOT,
+    DASHBOARD_TAB_KEYS.WHATSAPP,
+    DASHBOARD_TAB_KEYS.REGISTRATION_OTPS,
+  ],
+  instructor: [
+    DASHBOARD_TAB_KEYS.DASHBOARD,
+    DASHBOARD_TAB_KEYS.PROFILE,
+    DASHBOARD_TAB_KEYS.COURSES,
+    DASHBOARD_TAB_KEYS.ACCESS_CODES,
+    DASHBOARD_TAB_KEYS.ASSIGNMENTS,
+    DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.STUDENTS,
+    DASHBOARD_TAB_KEYS.PARENTS,
+    DASHBOARD_TAB_KEYS.SUPPORT,
+    DASHBOARD_TAB_KEYS.ASSISTANTS,
+  ],
+  assistant: [
+    DASHBOARD_TAB_KEYS.DASHBOARD,
+    DASHBOARD_TAB_KEYS.PROFILE,
+    DASHBOARD_TAB_KEYS.COURSES,
+    DASHBOARD_TAB_KEYS.ASSIGNMENTS,
+    DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.STUDENTS,
+    DASHBOARD_TAB_KEYS.PARENTS,
+    DASHBOARD_TAB_KEYS.SUPPORT,
+  ],
+};
+
+export const getDashboardTabsForRole = (role) => {
+  const allowed = ROLE_TAB_KEYS[role] || ROLE_TAB_KEYS.admin;
+  return DASHBOARD_TABS.filter((tab) => allowed.includes(tab.key));
+};

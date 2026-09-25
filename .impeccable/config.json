@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "border-accent-on-rounded",
+        "value": "*",
+        "files": [
+          "src/pages/StudentsDashboard.jsx"
+        ],
+        "createdAt": "2026-08-26T09:44:06.111Z",
+        "reason": "pre-existing codebase-wide hover-accent card pattern (same className repeated identically across 8 other dashboard pages: Admins, Assistants, Curriculums, Parents, Subjects, Levels, Instructors); not touched or introduced this session, out of scope for the pagination/access-codes task"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/pages/LoginPage.jsx"
+        ],
+        "createdAt": "2026-08-26T21:17:31.431Z",
+        "reason": "text-gray-500 on hover:bg-violet-50/30 (very light tint) — false positive, not part of Arabic/RTL localization task in progress"
+      }
+    ]
+  }
+}

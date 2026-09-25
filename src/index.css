@@ -1,0 +1,104 @@
+@import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Red+Hat+Display:ital,wght@0,300..900;1,300..900&display=swap");
+
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+  --color-brand: #2e0854;
+  --color-brand-dark: #1a0433;
+  --color-brand-hover: #3d0a6e;
+  --color-brand-orange: #ff6600;
+  --color-brand-orange-dark: #e55c00;
+  --color-brand-purple: #a020f0;
+  --color-brand-violet: #7c3aed;
+  --color-brand-violet-light: #ede9fe;
+  --color-brand-magenta: #c026d3;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #fdfdfc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2e0854;
+  border-radius: 10px;
+  border: 2px solid #fdfdfc;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #1a0433;
+}
+
+body {
+  font-family: "Plus Jakarta Sans", "Inter Tight", sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  background-color: #fdfdfc;
+  min-height: 100vh;
+  margin: 0;
+  color: #2e0854;
+  scroll-behavior: smooth !important;
+}
+
+[dir="rtl"] body {
+  font-family: "Cairo", sans-serif;
+  font-feature-settings: normal;
+}
+
+[dir="rtl"] .font-sans {
+  font-family: "Cairo", sans-serif;
+  font-feature-settings: normal;
+}
+
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6,
+[dir="rtl"] .heading,
+[dir="rtl"] .font-heading {
+  font-family: "Cairo", "Red Hat Display", sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.heading,
+.font-heading {
+  font-family: "Red Hat Display", sans-serif;
+}
+
+.footer-bg-gradient {
+  background-image: linear-gradient(to bottom, #fdfdfc, #f5f0fa);
+}
+
+.font-sidebar {
+  font-family: "Plus Jakarta Sans", "Inter Tight", sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+[dir="rtl"] .font-sidebar {
+  font-family: "Cairo", sans-serif;
+  font-feature-settings: normal;
+}
+
+@utility scroll-smooth {
+  scroll-behavior: smooth !important;
+}
+
+@utility scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
