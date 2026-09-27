@@ -24,6 +24,14 @@ const RegistrationOtpsDashboard = () => {
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
 
+  // Accounts created while the phone-OTP step was temporarily disabled —
+  // staff can mark each one's phone as manually verified here. Purely
+  // informational: it doesn't block login or usage either way.
+  const [pendingVerifications, setPendingVerifications] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
+  const [pendingError, setPendingError] = useState("");
+  const [verifyingId, setVerifyingId] = useState(null);
+
   const fetchRows = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     setError("");
@@ -37,11 +45,36 @@ const RegistrationOtpsDashboard = () => {
     }
   }, [t]);
 
+  const fetchPendingVerifications = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!silent) setPendingLoading(true);
+      setPendingError("");
+      try {
+        const res = await api.getPendingPhoneVerifications();
+        if (res.success) setPendingVerifications(res.data || []);
+      } catch (err) {
+        setPendingError(err.message || t("dashboard.registrationOtps.loadFailed"));
+      } finally {
+        if (!silent) setPendingLoading(false);
+      }
+    },
+    [t],
+  );
+
   useEffect(() => {
     fetchRows();
     const interval = setInterval(() => fetchRows({ silent: true }), 15000);
     return () => clearInterval(interval);
   }, [fetchRows]);
+
+  useEffect(() => {
+    fetchPendingVerifications();
+    const interval = setInterval(
+      () => fetchPendingVerifications({ silent: true }),
+      15000,
+    );
+    return () => clearInterval(interval);
+  }, [fetchPendingVerifications]);
 
   const handleDelete = async (id) => {
     if (!window.confirm(t("dashboard.registrationOtps.deleteConfirm"))) return;
@@ -55,6 +88,22 @@ const RegistrationOtpsDashboard = () => {
       setError(err.message || t("dashboard.registrationOtps.deleteFailed"));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleVerifyPhone = async (id) => {
+    setVerifyingId(id);
+    try {
+      const res = await api.verifyUserPhone(id);
+      if (res.success) {
+        setPendingVerifications((current) =>
+          current.filter((row) => row.id !== id),
+        );
+      }
+    } catch (err) {
+      setPendingError(err.message || t("dashboard.registrationOtps.deleteFailed"));
+    } finally {
+      setVerifyingId(null);
     }
   };
 
@@ -216,6 +265,92 @@ const RegistrationOtpsDashboard = () => {
                     </tr>
                   );
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div>
+        <h2 className="text-xl font-black font-heading tracking-tight flex items-center gap-2">
+          <HiOutlineCheckCircle className="text-brand-purple" />
+          {t("dashboard.registrationOtps.pendingPhoneVerificationsTitle")}
+        </h2>
+        <p className="text-sm text-gray-400 font-light mt-2 max-w-2xl">
+          {t("dashboard.registrationOtps.pendingPhoneVerificationsSubtitle")}
+        </p>
+      </div>
+
+      {pendingError && (
+        <div className="p-3 bg-violet-50 border border-violet-200 text-brand rounded-xl text-xs font-semibold">
+          ⚠️ {pendingError}
+        </div>
+      )}
+
+      <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm">
+        {pendingLoading ? (
+          <div className="h-40 flex items-center justify-center">
+            <div className="w-6 h-6 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : pendingVerifications.length === 0 ? (
+          <div className="text-center py-12 text-gray-400 text-sm border rounded-2xl border-dashed">
+            {t("dashboard.registrationOtps.pendingPhoneVerificationsEmpty")}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left p-3">
+                    {t("dashboard.registrationOtps.phone")}
+                  </th>
+                  <th className="text-left p-3">
+                    {t("dashboard.registrationOtps.role")}
+                  </th>
+                  <th className="text-left p-3">
+                    {t("dashboard.registrationOtps.createdAt")}
+                  </th>
+                  <th className="text-left p-3">
+                    {t("dashboard.common.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingVerifications.map((row) => (
+                  <tr
+                    key={row.id}
+                    className="border-b hover:bg-gray-50 align-top"
+                  >
+                    <td className="p-3 font-mono whitespace-nowrap">
+                      {row.phone}
+                      <span className="block text-[10px] text-gray-400 font-sans">
+                        {[row.first_name, row.last_name]
+                          .filter(Boolean)
+                          .join(" ")}
+                      </span>
+                      {row.email && (
+                        <span className="block text-[10px] text-gray-400 font-sans">
+                          {row.email}
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 capitalize">{row.role}</td>
+                    <td className="p-3 whitespace-nowrap">
+                      {formatDate(row.created_at)}
+                    </td>
+                    <td className="p-3">
+                      <button
+                        type="button"
+                        onClick={() => handleVerifyPhone(row.id)}
+                        disabled={verifyingId === row.id}
+                        className="flex items-center gap-1 text-green-700 hover:underline disabled:opacity-50 font-semibold"
+                      >
+                        <HiOutlineCheckCircle />{" "}
+                        {t("dashboard.registrationOtps.verifyAction")}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

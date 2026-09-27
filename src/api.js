@@ -171,6 +171,12 @@ export const api = {
   // accountType: "student" (default) | "parent"
   // email: only needed when the WhatsApp session isn't connected — collected
   // by the frontend beforehand via getWhatsappAvailability().
+  getRegistrationOtpStatus: async () => {
+    return await fetchClient("/auth/register/status", {
+      method: "GET",
+    });
+  },
+
   sendRegistrationOtp: async (phone, accountType = "student", email) => {
     return await fetchClient("/auth/register/send-otp", {
       method: "POST",
@@ -1265,6 +1271,18 @@ export const api = {
   deleteRegistrationOtp: async (id) => {
     return await fetchClient(`/auth/admin/registration-otps/${id}`, {
       method: "DELETE",
+    });
+  },
+
+  getPendingPhoneVerifications: async () => {
+    return await fetchClient("/users/phone-verifications/pending", {
+      method: "GET",
+    });
+  },
+
+  verifyUserPhone: async (id) => {
+    return await fetchClient(`/users/${id}/phone-verification`, {
+      method: "PUT",
     });
   },
 

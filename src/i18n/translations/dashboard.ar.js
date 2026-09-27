@@ -403,6 +403,13 @@ export default {
     expiresAt: "وقت الانتهاء",
     expired: "منتهي",
     existingParent: "ولي أمر حالي يعيد التحقق",
+    pendingPhoneVerificationsTitle: "توثيق أرقام الهواتف المعلّقة",
+    pendingPhoneVerificationsSubtitle:
+      "حسابات تم إنشاؤها أثناء إيقاف التحقق برمز الهاتف مؤقتًا. التوثيق هنا للعلم فقط — لا يؤثر على قدرة الشخص على تسجيل الدخول.",
+    pendingPhoneVerificationsEmpty: "لا توجد حسابات بانتظار توثيق الهاتف.",
+    role: "الدور",
+    createdAt: "تاريخ الإنشاء",
+    verifyAction: "توثيق",
   },
   courses: {
     title: "إدارة الدورات",

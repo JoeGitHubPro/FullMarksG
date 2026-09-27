@@ -64,6 +64,11 @@ const LoginPage = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [regToken, setRegToken] = useState(null);
 
+  // Whether the phone-OTP step is currently required at all (it can be
+  // temporarily disabled from the backend .env). Defaults to true until the
+  // check resolves, so nothing changes if the request fails.
+  const [registrationOtpEnabled, setRegistrationOtpEnabled] = useState(true);
+
   // --- Academic Level (parent add-child flow) ---
   const [academicLevels, setAcademicLevels] = useState([]);
   const [studentType, setStudentType] = useState("");
@@ -165,6 +170,26 @@ const LoginPage = () => {
     }
   }, [isAuthenticated, user, navigate]);
 
+  // Check once whether the phone-OTP step is enabled, so both the student
+  // and parent signup flows know whether to skip it entirely.
+  useEffect(() => {
+    if (mode !== "register") return;
+    let cancelled = false;
+    api
+      .getRegistrationOtpStatus()
+      .then((res) => {
+        if (!cancelled && typeof res?.otpEnabled === "boolean") {
+          setRegistrationOtpEnabled(res.otpEnabled);
+        }
+      })
+      .catch(() => {
+        // Fail open — behave exactly as before if the check itself errors.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
   // Fetch academic levels when registration mode is active
   useEffect(() => {
     if (mode === "register") {
@@ -259,6 +284,13 @@ const LoginPage = () => {
         return;
       }
       setPhone(normalizedPhone);
+      if (!registrationOtpEnabled) {
+        // OTP is temporarily disabled — skip straight to account details,
+        // no verification code needed.
+        setStep("details");
+        setIsSubmitting(false);
+        return;
+      }
       if (whatsappReady === false) {
         // WhatsApp is down — collect the fallback email on its own step
         // before actually requesting the OTP.
@@ -383,6 +415,10 @@ const LoginPage = () => {
         academicLevelId: DEFAULT_ACADEMIC_LEVEL_ID,
         studentType,
         governorate,
+        // Only used by the backend when the OTP step is disabled (it's
+        // ignored otherwise, since the phone then comes from the verified
+        // OTP token instead).
+        phone,
       };
 
       if (!skipParent && parentPhone) {
@@ -444,6 +480,14 @@ const LoginPage = () => {
         return;
       }
       setParentPhoneReg(normalizedPhone);
+      if (!registrationOtpEnabled) {
+        // OTP is temporarily disabled — skip straight to setting a
+        // password. The backend still detects an existing parent by phone
+        // and resets their password instead of creating a duplicate.
+        setParentStep("password");
+        setIsSubmitting(false);
+        return;
+      }
       if (whatsappReady === false) {
         setParentStep("otpEmail");
         setIsSubmitting(false);
@@ -584,6 +628,8 @@ const LoginPage = () => {
         lastName: parentLastNameReg,
         email: parentEmailReg || undefined,
         password: parentPasswordReg,
+        // Only used by the backend when the OTP step is disabled.
+        phone: parentPhoneReg,
       };
       const response = await api.completeParentRegistration(
         payload,
@@ -1168,9 +1214,11 @@ const LoginPage = () => {
                       />
                     </div>
                     <p className="text-[10px] text-gray-400 px-1">
-                      {whatsappReady === false
-                        ? t("auth.otpFallbackEmailHint")
-                        : t("auth.whatsappVerifyHint")}
+                      {!registrationOtpEnabled
+                        ? ""
+                        : whatsappReady === false
+                          ? t("auth.otpFallbackEmailHint")
+                          : t("auth.whatsappVerifyHint")}
                     </p>
                   </div>
                   <div className="flex gap-3">
@@ -1186,7 +1234,11 @@ const LoginPage = () => {
                       disabled={isSubmitting}
                       className="flex-1 bg-brand hover:bg-brand-dark disabled:bg-violet-300 text-white font-semibold text-sm py-4 rounded-2xl transition-all"
                     >
-                      {isSubmitting ? t("auth.sending") : t("auth.sendVerificationCode")}
+                      {isSubmitting
+                        ? t("auth.sending")
+                        : registrationOtpEnabled
+                          ? t("auth.sendVerificationCode")
+                          : t("auth.next")}
                     </button>
                   </div>
                 </form>
@@ -1640,7 +1692,11 @@ const LoginPage = () => {
                       disabled={isSubmitting}
                       className="flex-1 bg-brand hover:bg-brand-dark disabled:bg-violet-300 text-white font-semibold text-sm py-4 rounded-2xl transition-all"
                     >
-                      {isSubmitting ? t("auth.sending") : t("auth.sendVerificationCode")}
+                      {isSubmitting
+                        ? t("auth.sending")
+                        : registrationOtpEnabled
+                          ? t("auth.sendVerificationCode")
+                          : t("auth.next")}
                     </button>
                   </div>
                 </form>

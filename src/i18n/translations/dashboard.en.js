@@ -406,6 +406,13 @@ export default {
     expiresAt: "Expires At",
     expired: "Expired",
     existingParent: "Existing parent re-verifying",
+    pendingPhoneVerificationsTitle: "Pending Phone Verifications",
+    pendingPhoneVerificationsSubtitle:
+      "Accounts created while phone-OTP verification was temporarily disabled. Verifying here is informational only — it does not affect the person's ability to log in.",
+    pendingPhoneVerificationsEmpty: "No accounts waiting on phone verification.",
+    role: "Role",
+    createdAt: "Created At",
+    verifyAction: "Verify",
   },
   courses: {
     title: "Course Management",

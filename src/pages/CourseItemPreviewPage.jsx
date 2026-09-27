@@ -1032,6 +1032,70 @@ const CourseItemPreviewPage = () => {
     return () => clearInterval(id);
   }, [quizStarted, quizDeadlineMs, quizTimeUp]);
 
+  // True while the student is looking at the live, editable quiz/exam form —
+  // i.e. exactly the case that renders the "EDITABLE FORM" branch below.
+  // Used to warn them before they accidentally navigate away mid-attempt.
+  const quizDueDateForGuard = fullItem?.due_date || item?.due_date;
+  const quizFormActive =
+    isQuiz &&
+    user?.role === "student" &&
+    isEnrolled &&
+    !isStaffViewer &&
+    quizQuestions.length > 0 &&
+    !quizSubmitted &&
+    quizScheduleStatus !== "not_started" &&
+    !isPastDueDate(quizDueDateForGuard) &&
+    !needsQuizStart;
+
+  // Warn before an accidental exit from an in-progress quiz/exam: closing
+  // the tab or refreshing (beforeunload), and the browser Back/Forward
+  // buttons (popstate — a SPA route change doesn't unload the page, so
+  // beforeunload alone wouldn't catch it).
+  useEffect(() => {
+    if (!quizFormActive) return undefined;
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+      return "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Push an extra history entry so a Back press lands on it first,
+    // instead of immediately leaving the page.
+    window.history.pushState(null, "", window.location.href);
+    const handlePopState = () => {
+      const leave = window.confirm(
+        "You're in the middle of a quiz/exam. Going back now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
+      );
+      if (leave) {
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+        window.removeEventListener("popstate", handlePopState);
+        window.history.back();
+      } else {
+        window.history.pushState(null, "", window.location.href);
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [quizFormActive]);
+
+  // Same warning for in-app links (e.g. "Back to Course") — those navigate
+  // via React Router without triggering beforeunload or popstate.
+  const guardQuizNavigation = (e) => {
+    if (!quizFormActive) return;
+    const leave = window.confirm(
+      "You're in the middle of a quiz/exam. Leaving now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
+    );
+    if (!leave) {
+      e.preventDefault();
+    }
+  };
+
   const fmtCountdown = (ms) => {
     const total = Math.max(0, Math.floor(ms / 1000));
     const h = Math.floor(total / 3600);
@@ -1131,6 +1195,13 @@ const CourseItemPreviewPage = () => {
           };
         });
         setQuizAnswers(existingMap);
+      }
+      // Re-fetch the questions too: now that every answer is submitted, the
+      // backend reveals each question's correct option (previously it only
+      // did that after the due date), so the student sees it right away.
+      const refreshedQuestions = await api.getQuizQuestions(itemId);
+      if (refreshedQuestions.success) {
+        setQuizQuestions(refreshedQuestions.data);
       }
     } catch (err) {
       alert(err.message || "Failed to submit quiz.");
@@ -2158,6 +2229,7 @@ const CourseItemPreviewPage = () => {
       <div className="max-w-7xl mx-auto">
         <Link
           to={`/courses/${slug}`}
+          onClick={guardQuizNavigation}
           className="inline-flex items-center space-x-2 text-sm font-medium text-gray-500 hover:text-[#2e0854] transition-colors mb-6 group"
         >
           <HiOutlineArrowLeft className="text-base group-hover:-translate-x-0.5 transition-transform" />

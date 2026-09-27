@@ -7,6 +7,7 @@ import {
   formatDueDate,
   isPastDueDate,
   toDatetimeLocalValue,
+  localInputToUtcIso,
 } from "../utils/assessmentDue";
 import {
   HiOutlinePlus,
@@ -623,7 +624,7 @@ const CoursesDashboard = () => {
         codeType: newCode.codeType,
         courseId: activeCourse.id,
         maxUses: newCode.maxUses,
-        expiresAt: newCode.expiresAt || null,
+        expiresAt: localInputToUtcIso(newCode.expiresAt),
         accessDurationDays: newCode.accessDurationDays
           ? parseInt(newCode.accessDurationDays, 10)
           : null,
@@ -661,7 +662,7 @@ const CoursesDashboard = () => {
         courseId: activeCourse.id,
         quantity: bulkQuantity,
         maxUses: 1,
-        expiresAt: bulkExpiresAt || null,
+        expiresAt: localInputToUtcIso(bulkExpiresAt),
         accessDurationDays: bulkAccessDurationDays
           ? parseInt(bulkAccessDurationDays, 10)
           : null,
@@ -1200,7 +1201,9 @@ const CoursesDashboard = () => {
               "Start time and duration are required for Zoom meeting.",
             );
           }
-          payload.startTime = chapterItemFormData.startTime;
+          payload.startTime = localInputToUtcIso(
+            chapterItemFormData.startTime,
+          );
           payload.durationMinutes = parseInt(
             chapterItemFormData.durationMinutes,
           );
@@ -1224,7 +1227,9 @@ const CoursesDashboard = () => {
           }
           payload.meetingId = chapterItemFormData.meetingId;
           payload.meetingPassword = chapterItemFormData.meetingPassword || null;
-          payload.startTime = chapterItemFormData.startTime;
+          payload.startTime = localInputToUtcIso(
+            chapterItemFormData.startTime,
+          );
           payload.durationMinutes = parseInt(
             chapterItemFormData.durationMinutes,
           );
@@ -1240,9 +1245,11 @@ const CoursesDashboard = () => {
         payload.maxScore = chapterItemFormData.maxScore
           ? parseFloat(chapterItemFormData.maxScore)
           : 100;
-        payload.dueDate = chapterItemFormData.dueDate || null;
+        payload.dueDate = localInputToUtcIso(chapterItemFormData.dueDate);
         if (chapterItemFormData.itemType === "quiz") {
-          payload.availableFrom = chapterItemFormData.availableFrom || null;
+          payload.availableFrom = localInputToUtcIso(
+            chapterItemFormData.availableFrom,
+          );
         }
         payload.timeLimitMinutes = chapterItemFormData.timeLimitMinutes
           ? parseInt(chapterItemFormData.timeLimitMinutes)
