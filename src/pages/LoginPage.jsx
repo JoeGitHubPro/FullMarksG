@@ -431,6 +431,17 @@ const LoginPage = () => {
       const response = await api.completeRegistration(payload, regToken);
       if (response.success && response.token) {
         login(response.user, response.token);
+      } else if (response.success && response.pendingVerification) {
+        // Account created, but OTP is disabled so it still needs an
+        // admin/assistant to verify the phone before login will work — send
+        // them to the login screen instead of signing them in.
+        setMode("login");
+        setLoginIdentifier(phone);
+        setPassword("");
+        setStep("phone");
+        setRegisterAccountType(null);
+        setSuccessMessage(response.message);
+        setTimeout(() => setSuccessMessage(""), 8000);
       } else {
         setErrorMessage(response.message || t("auth.createAccountFailed"));
       }
@@ -635,7 +646,19 @@ const LoginPage = () => {
         payload,
         parentRegToken,
       );
-      if (response.success && response.token) {
+      if (response.success && response.pendingVerification) {
+        // New parent account, but OTP is disabled so it still needs an
+        // admin/assistant to verify the phone before login will work — send
+        // them to the login screen instead of the "add children" step,
+        // which needs an authenticated session it doesn't have yet.
+        setMode("login");
+        setLoginIdentifier(parentPhoneReg);
+        setPassword("");
+        setParentStep("phone");
+        setRegisterAccountType(null);
+        setSuccessMessage(response.message);
+        setTimeout(() => setSuccessMessage(""), 8000);
+      } else if (response.success && response.token) {
         // Hold the token/user locally (and in localStorage so authenticated
         // calls like addChild work) but DON'T call context login() yet —
         // that would redirect away before the person can review/add children.
