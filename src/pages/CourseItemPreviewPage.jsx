@@ -657,6 +657,8 @@ const CourseItemPreviewPage = () => {
   const [quizAttempt, setQuizAttempt] = useState(null);
   const [quizStarting, setQuizStarting] = useState(false);
   const [nowTick, setNowTick] = useState(Date.now());
+  // Guards the timeout auto-submit so it fires exactly once per attempt.
+  const autoSubmittedRef = useRef(false);
 
   const [studentRecordId, setStudentRecordId] = useState(null);
   const [studentDisplayName, setStudentDisplayName] = useState("");
@@ -1032,6 +1034,29 @@ const CourseItemPreviewPage = () => {
     return () => clearInterval(id);
   }, [quizStarted, quizDeadlineMs, quizTimeUp]);
 
+  // Browsers throttle setInterval in a backgrounded tab, so the countdown
+  // above can lag behind the real deadline while the student is away from
+  // the tab. Re-sync the clock immediately whenever the tab/window becomes
+  // visible/focused again, so a timeout that happened in the background is
+  // caught (and auto-submitted) as soon as they come back "on any way".
+  useEffect(() => {
+    if (!quizStarted || !quizDeadlineMs) return undefined;
+    const resync = () => setNowTick(Date.now());
+    document.addEventListener("visibilitychange", resync);
+    window.addEventListener("focus", resync);
+    return () => {
+      document.removeEventListener("visibilitychange", resync);
+      window.removeEventListener("focus", resync);
+    };
+  }, [quizStarted, quizDeadlineMs]);
+
+  // Reset the once-per-attempt auto-submit guard whenever a new attempt
+  // starts (e.g. the student starts a fresh timed attempt after this page
+  // reloaded).
+  useEffect(() => {
+    if (quizStarted && !quizSubmitted) autoSubmittedRef.current = false;
+  }, [quizAttempt?.startedAt]);
+
   // True while the student is looking at the live, editable quiz/exam form —
   // i.e. exactly the case that renders the "EDITABLE FORM" branch below.
   // Used to warn them before they accidentally navigate away mid-attempt.
@@ -1127,6 +1152,50 @@ const CourseItemPreviewPage = () => {
     }
   };
 
+  // Sends whatever is currently in quizAnswers to the server and refreshes
+  // local state from the result. Shared by the manual "Submit" button and
+  // the automatic timeout submit below — neither one does its own required-
+  // questions validation here, that's handled by the caller.
+  const submitQuizAnswers = async () => {
+    for (const q of quizQuestions) {
+      const ans = quizAnswers[q.id] || {};
+      const payload = {
+        questionId: q.id,
+        answerText: ans.answerText || "",
+        selectedOptionId: ans.selectedOptionId || undefined,
+      };
+      try {
+        await api.submitQuizAnswer(itemId, payload, ans.file || undefined);
+      } catch (err) {
+        // Don't let one failed question abort the rest — this matters most
+        // for a forced timeout submit, where saving as many answers as
+        // possible is the whole point.
+        console.error("Failed to submit quiz answer", q.id, err);
+      }
+    }
+    setQuizSubmitted(true);
+    const answersRes = await api.getQuizAnswers(itemId);
+    if (answersRes.success) {
+      setQuizExistingAnswers(answersRes.data);
+      const existingMap = {};
+      answersRes.data.forEach((ans) => {
+        existingMap[ans.question_id] = {
+          answerText: ans.answer_text || "",
+          selectedOptionId: ans.selected_option_id || "",
+          file: ans.file_path || null,
+        };
+      });
+      setQuizAnswers(existingMap);
+    }
+    // Re-fetch the questions too: now that every answer is submitted, the
+    // backend reveals each question's correct option (previously it only
+    // did that after the due date), so the student sees it right away.
+    const refreshedQuestions = await api.getQuizQuestions(itemId);
+    if (refreshedQuestions.success) {
+      setQuizQuestions(refreshedQuestions.data);
+    }
+  };
+
   const handleQuizSubmit = async (e) => {
     e.preventDefault();
     if (quizSubmitted) return;
@@ -1146,7 +1215,9 @@ const CourseItemPreviewPage = () => {
       return;
     }
     if (quizTimeUp) {
-      alert("Your quiz time is up. Answers can no longer be submitted.");
+      // The auto-submit effect below already handles this case the instant
+      // time runs out; this is just a safety net against a stray click.
+      alert("Your quiz time is up. Your answers are being submitted automatically.");
       return;
     }
     setQuizSubmitting(true);
@@ -1172,43 +1243,33 @@ const CourseItemPreviewPage = () => {
         }
       }
 
-      for (const q of quizQuestions) {
-        const ans = quizAnswers[q.id] || {};
-        const payload = {
-          questionId: q.id,
-          answerText: ans.answerText || "",
-          selectedOptionId: ans.selectedOptionId || undefined,
-        };
-        await api.submitQuizAnswer(itemId, payload, ans.file || undefined);
-      }
+      await submitQuizAnswers();
       alert("Quiz submitted successfully!");
-      setQuizSubmitted(true);
-      const answersRes = await api.getQuizAnswers(itemId);
-      if (answersRes.success) {
-        setQuizExistingAnswers(answersRes.data);
-        const existingMap = {};
-        answersRes.data.forEach((ans) => {
-          existingMap[ans.question_id] = {
-            answerText: ans.answer_text || "",
-            selectedOptionId: ans.selected_option_id || "",
-            file: ans.file_path || null,
-          };
-        });
-        setQuizAnswers(existingMap);
-      }
-      // Re-fetch the questions too: now that every answer is submitted, the
-      // backend reveals each question's correct option (previously it only
-      // did that after the due date), so the student sees it right away.
-      const refreshedQuestions = await api.getQuizQuestions(itemId);
-      if (refreshedQuestions.success) {
-        setQuizQuestions(refreshedQuestions.data);
-      }
     } catch (err) {
       alert(err.message || "Failed to submit quiz.");
     } finally {
       setQuizSubmitting(false);
     }
   };
+
+  // Auto-submit on timeout: the moment the countdown hits zero, send
+  // whatever the student has filled in so far — no validation, no
+  // confirmation dialog, and it can't be blocked by the quizTimeUp guard in
+  // handleQuizSubmit above (that guard is only for a *manual* click after
+  // time is already up). autoSubmittedRef makes sure this fires once per
+  // attempt even though quizTimeUp stays true on every subsequent render.
+  useEffect(() => {
+    if (!quizTimeUp || quizSubmitted || autoSubmittedRef.current) return;
+    if (!quizStarted || quizQuestions.length === 0) return;
+    autoSubmittedRef.current = true;
+    setQuizSubmitting(true);
+    submitQuizAnswers()
+      .catch((err) => {
+        console.error("Auto-submit on quiz timeout failed", err);
+      })
+      .finally(() => setQuizSubmitting(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quizTimeUp, quizSubmitted, quizStarted, quizQuestions]);
 
   // ─── Loading / Error ──────────────────────────────────────────────
   if (loading)
@@ -1909,7 +1970,9 @@ const CourseItemPreviewPage = () => {
                     )}
                     {quizTimeUp && (
                       <div className="bg-violet-50 border border-violet-200 text-brand rounded-xl p-3 text-sm">
-                        Your quiz time is up. Answers can no longer be submitted.
+                        {quizSubmitted
+                          ? "Your quiz time is up. Your answers were submitted automatically."
+                          : "Your quiz time is up. Submitting your current answers automatically…"}
                       </div>
                     )}
                     {quizQuestions.map((q, index) => {
@@ -2044,7 +2107,9 @@ const CourseItemPreviewPage = () => {
                         className="flex-1 bg-brand hover:bg-brand-dark disabled:bg-violet-300 text-white font-semibold text-sm py-2 rounded-xl transition-all"
                       >
                         {quizTimeUp
-                          ? "Time's up"
+                          ? quizSubmitting
+                            ? "Submitting..."
+                            : "Time's up"
                           : quizSubmitting
                             ? "Submitting..."
                             : "Submit Quiz"}
