@@ -147,6 +147,11 @@ const ProfileDashboard = () => {
         value: roleData.superAdmin ?? roleData.super_admin,
       },
       {
+        icon: HiOutlineShieldCheck,
+        label: t("dashboard.profile.subAdmin"),
+        value: roleData.isSubAdmin ?? roleData.is_sub_admin,
+      },
+      {
         icon: HiOutlineIdentification,
         label: t("dashboard.profile.adminRecordId"),
         value: roleData.id,

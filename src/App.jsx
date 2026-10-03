@@ -13,6 +13,9 @@ import CourseDetailPage from "./pages/CourseDetailPage";
 import CategoriesCatalogPage from "./pages/CategoriesCatalogPage";
 import CategoryDetailPage from "./pages/CategoryDetailPage";
 import CourseItemPreviewPage from "./pages/CourseItemPreviewPage";
+import MonthQuizTakePage from "./pages/MonthQuizTakePage";
+import StudentQuizzesPage from "./pages/StudentQuizzesPage";
+import MonthQuizzesDashboard from "./pages/MonthQuizzesDashboard";
 import InstructorsCatalogPage from "./pages/InstructorsCatalogPage";
 import InstructorDetailPage from "./pages/InstructorDetailPage";
 
@@ -39,6 +42,7 @@ import CategoriesDashboard from "./pages/CategoriesDashboard";
 import PaymentsDashboard from "./pages/PaymentsDashboard";
 import WhatsAppDashboard from "./pages/WhatsAppDashboard";
 import RegistrationOtpsDashboard from "./pages/RegistrationOtpsDashboard";
+import StudentAccessDashboard from "./pages/StudentAccessDashboard";
 import PaymentReturnPage from "./pages/PaymentReturnPage";
 
 import ProfilePage from "./pages/ProfilePage";
@@ -66,6 +70,23 @@ const ProfileRoute = ({ children }) => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (!["student", "parent"].includes(user?.role)) {
     return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+};
+
+// Standalone Month Quizzes (/quizzes) are for students; staff manage them
+// from the dashboard's Month Quizzes section instead.
+const StudentOnlyRoute = ({ children }) => {
+  const { isAuthenticated, user, loading } = useAuth();
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  if (user?.role !== "student") {
+    return (
+      <Navigate
+        to={STAFF_ROLES.includes(user?.role) ? "/dashboard/month-quizzes" : "/"}
+        replace
+      />
+    );
   }
   return children;
 };
@@ -112,6 +133,26 @@ function App() {
         <Route
           path="/courses/:slug/preview/:itemId"
           element={<CourseItemPreviewPage />}
+        />
+        <Route
+          path="/courses/:slug/month-quiz/:quizId"
+          element={<MonthQuizTakePage />}
+        />
+        <Route
+          path="/quizzes"
+          element={
+            <StudentOnlyRoute>
+              <StudentQuizzesPage />
+            </StudentOnlyRoute>
+          }
+        />
+        <Route
+          path="/quizzes/:quizId"
+          element={
+            <StudentOnlyRoute>
+              <MonthQuizTakePage />
+            </StudentOnlyRoute>
+          }
         />
         <Route path="/months" element={<CategoriesCatalogPage />} />
         <Route path="/months/:slug" element={<CategoryDetailPage />} />
@@ -208,6 +249,15 @@ function App() {
         />
 
         <Route
+          path="student-access"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "assistant"]}>
+              <StudentAccessDashboard />
+            </RoleBasedRoute>
+          }
+        />
+
+        <Route
           path="categories"
           element={
             <RoleBasedRoute allowedRoles={["admin"]}>
@@ -230,6 +280,14 @@ function App() {
           element={
             <RoleBasedRoute allowedRoles={["admin", "instructor", "assistant"]}>
               <AssignmentsDashboard />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="month-quizzes"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "instructor", "assistant"]}>
+              <MonthQuizzesDashboard />
             </RoleBasedRoute>
           }
         />

@@ -65,3 +65,18 @@ export const localInputToUtcIso = (value) => {
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
 };
+
+// Convert a server timed-attempt ({ deadline, serverNow, ... }) into this
+// device's clock. `deadline` is an absolute timestamp from the SERVER clock;
+// comparing it directly with the browser's Date.now() breaks for students
+// whose phone/PC clock is wrong — a clock that's ahead by more than the quiz
+// window makes the countdown hit 0 instantly and auto-submits an empty quiz.
+// Re-anchoring on serverNow makes the countdown depend only on the time
+// REMAINING, which is the same on every device.
+export const toLocalAttempt = (attempt) => {
+  if (!attempt) return attempt;
+  const deadline = attempt.deadline != null ? Number(attempt.deadline) : null;
+  const serverNow = attempt.serverNow != null ? Number(attempt.serverNow) : null;
+  if (!deadline || !serverNow) return attempt;
+  return { ...attempt, deadline: Date.now() + (deadline - serverNow) };
+};

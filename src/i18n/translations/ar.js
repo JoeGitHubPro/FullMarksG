@@ -33,6 +33,7 @@ export default {
     about: "من نحن",
     profile: "الملف الشخصي",
     dashboard: "لوحة التحكم",
+    quizzes: "الاختبارات",
     loadingLevels: "جاري تحميل المراحل...",
     noLevels: "لا توجد مراحل متاحة",
   },
@@ -605,6 +606,18 @@ export default {
     itemTypes: {
       assignment: "واجب",
       quiz: "اختبار",
+    },
+    monthQuizzes: {
+      title: "الاختبارات الشهرية",
+      subtitle: "اختباراتك الشهرية ونتائجها.",
+      noQuizzes: "لا توجد اختبارات متاحة حالياً.",
+      open: "متاح",
+      notStarted: "لم يبدأ بعد",
+      closed: "مغلق",
+      pendingGrade: "بانتظار التصحيح",
+      graded: "تم التصحيح",
+      takeQuiz: "بدء الاختبار",
+      viewQuiz: "عرض",
     },
   },
   support: {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { api } from "../api";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm, useToast } from "../context/FeedbackContext";
 import {
   HiOutlineArrowLeft,
   HiOutlineDocumentText,
@@ -25,6 +26,7 @@ import {
   isBeforeAvailableFrom,
   isPastDueDate,
   toDatetimeLocalValue,
+  toLocalAttempt,
 } from "../utils/assessmentDue";
 import {
   formatMeetingDateTime,
@@ -616,7 +618,10 @@ const CustomVideoPlayer = ({
 // ─── Main Page ───────────────────────────────────────────────────────
 const CourseItemPreviewPage = () => {
   const { slug, itemId } = useParams();
+  const navigate = useNavigate();
   const { user, isAuthenticated } = useAuth();
+  const confirm = useConfirm();
+  const toast = useToast();
 
   // ── Content state ──
   const [loading, setLoading] = useState(true);
@@ -849,7 +854,7 @@ const CourseItemPreviewPage = () => {
                 if (qRes.schedule?.status) {
                   setQuizScheduleStatus(qRes.schedule.status);
                 }
-                if (qRes.attempt) setQuizAttempt(qRes.attempt);
+                if (qRes.attempt) setQuizAttempt(toLocalAttempt(qRes.attempt));
               }
 
               if (user?.role === "student") {
@@ -1007,6 +1012,16 @@ const CourseItemPreviewPage = () => {
   };
 
   // ── Timed quiz (per-student countdown) ──
+  // Staff can manually unlock a quiz for one student (Student Access tab →
+  // "Unlock for student", or "Allow repeat" after resetting their attempt),
+  // which the backend honors by letting that student start/submit outside
+  // the quiz's normal available_from/due_date window — see the matching
+  // `hasOverride` checks in quizController.js. The frontend has its own,
+  // separate "the due date has passed" / "not started yet" gates below that
+  // would otherwise keep showing those messages and hide the quiz entirely
+  // even once the backend has granted the override, so this same flag has
+  // to bypass those gates too.
+  const hasManualOverride = !!fullItem?.unlocked_via;
   const quizWindowMinutes =
     quizAttempt?.windowMinutes ||
     fullItem?.attempt_window_minutes ||
@@ -1019,13 +1034,13 @@ const CourseItemPreviewPage = () => {
   const quizTimeRemainingMs =
     quizStarted && quizDeadlineMs ? quizDeadlineMs - nowTick : null;
   const quizTimeUp = quizTimeRemainingMs !== null && quizTimeRemainingMs <= 0;
-  // Show the "Start Quiz" gate: quiz has a window, not started, still open,
-  // not already submitted.
+  // Show the "Start Quiz" gate: quiz has a window, not started, still open
+  // (or manually overridden for this student), not already submitted.
   const needsQuizStart =
     !!quizWindowMinutes &&
     !quizStarted &&
     !quizSubmitted &&
-    quizScheduleStatus === "open";
+    (quizScheduleStatus === "open" || hasManualOverride);
 
   // Tick once a second while the countdown is live so it re-renders.
   useEffect(() => {
@@ -1068,8 +1083,8 @@ const CourseItemPreviewPage = () => {
     !isStaffViewer &&
     quizQuestions.length > 0 &&
     !quizSubmitted &&
-    quizScheduleStatus !== "not_started" &&
-    !isPastDueDate(quizDueDateForGuard) &&
+    (quizScheduleStatus !== "not_started" || hasManualOverride) &&
+    (!isPastDueDate(quizDueDateForGuard) || hasManualOverride) &&
     !needsQuizStart;
 
   // Warn before an accidental exit from an in-progress quiz/exam: closing
@@ -1089,16 +1104,23 @@ const CourseItemPreviewPage = () => {
     // Push an extra history entry so a Back press lands on it first,
     // instead of immediately leaving the page.
     window.history.pushState(null, "", window.location.href);
-    const handlePopState = () => {
-      const leave = window.confirm(
-        "You're in the middle of a quiz/exam. Going back now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
-      );
+    const handlePopState = async () => {
+      // Re-push immediately so a second rapid Back press (fired before the
+      // dialog's promise resolves) still lands on this same guard entry
+      // instead of slipping past it.
+      window.history.pushState(null, "", window.location.href);
+      const leave = await confirm({
+        title: "Leave the quiz/exam?",
+        message:
+          "You're in the middle of a quiz/exam. Going back now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
+        confirmLabel: "Leave anyway",
+        cancelLabel: "Stay",
+        tone: "danger",
+      });
       if (leave) {
         window.removeEventListener("beforeunload", handleBeforeUnload);
         window.removeEventListener("popstate", handlePopState);
         window.history.back();
-      } else {
-        window.history.pushState(null, "", window.location.href);
       }
     };
     window.addEventListener("popstate", handlePopState);
@@ -1110,15 +1132,22 @@ const CourseItemPreviewPage = () => {
   }, [quizFormActive]);
 
   // Same warning for in-app links (e.g. "Back to Course") — those navigate
-  // via React Router without triggering beforeunload or popstate.
-  const guardQuizNavigation = (e) => {
+  // via React Router without triggering beforeunload or popstate. The
+  // styled confirm dialog is async, so the click's default navigation is
+  // always suppressed first and, if confirmed, replayed manually.
+  const guardQuizNavigation = (e, to) => {
     if (!quizFormActive) return;
-    const leave = window.confirm(
-      "You're in the middle of a quiz/exam. Leaving now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
-    );
-    if (!leave) {
-      e.preventDefault();
-    }
+    e.preventDefault();
+    confirm({
+      title: "Leave the quiz/exam?",
+      message:
+        "You're in the middle of a quiz/exam. Leaving now may lose your progress or lock you out if the timer is running. Are you sure you want to leave?",
+      confirmLabel: "Leave anyway",
+      cancelLabel: "Stay",
+      tone: "danger",
+    }).then((leave) => {
+      if (leave) navigate(to);
+    });
   };
 
   const fmtCountdown = (ms) => {
@@ -1136,17 +1165,20 @@ const CourseItemPreviewPage = () => {
     try {
       const res = await api.startQuizAttempt(itemId);
       if (res.success && res.data) {
-        setQuizAttempt({
-          windowMinutes: res.data.windowMinutes,
-          startedAt: res.data.startedAt,
-          deadline: res.data.deadline,
-        });
+        setQuizAttempt(
+          toLocalAttempt({
+            windowMinutes: res.data.windowMinutes,
+            startedAt: res.data.startedAt,
+            deadline: res.data.deadline,
+            serverNow: res.data.serverNow,
+          }),
+        );
         setNowTick(Date.now());
       } else {
-        alert(res.message || "Could not start the quiz.");
+        toast.error(res.message || "Could not start the quiz.");
       }
     } catch (err) {
-      alert(err?.message || "Could not start the quiz.");
+      toast.error(err?.message || "Could not start the quiz.");
     } finally {
       setQuizStarting(false);
     }
@@ -1157,22 +1189,31 @@ const CourseItemPreviewPage = () => {
   // the automatic timeout submit below — neither one does its own required-
   // questions validation here, that's handled by the caller.
   const submitQuizAnswers = async () => {
-    for (const q of quizQuestions) {
-      const ans = quizAnswers[q.id] || {};
-      const payload = {
-        questionId: q.id,
-        answerText: ans.answerText || "",
-        selectedOptionId: ans.selectedOptionId || undefined,
-      };
-      try {
-        await api.submitQuizAnswer(itemId, payload, ans.file || undefined);
-      } catch (err) {
-        // Don't let one failed question abort the rest — this matters most
-        // for a forced timeout submit, where saving as many answers as
-        // possible is the whole point.
-        console.error("Failed to submit quiz answer", q.id, err);
-      }
-    }
+    // Fire every question's request at once instead of awaiting them one at
+    // a time. A sequential loop over, say, 20 questions at ~1s each could
+    // easily take longer than the server's post-deadline grace window,
+    // meaning the last few answers of a timed-out quiz would get rejected
+    // for arriving "too late" even though the student answered them in
+    // time — they were just queued up behind the earlier requests on the
+    // client, not actually late.
+    await Promise.allSettled(
+      quizQuestions.map((q) => {
+        const ans = quizAnswers[q.id] || {};
+        const payload = {
+          questionId: q.id,
+          answerText: ans.answerText || "",
+          selectedOptionId: ans.selectedOptionId || undefined,
+        };
+        // Don't let one failed question affect the others — this matters
+        // most for a forced timeout submit, where saving as many answers
+        // as possible is the whole point.
+        return api
+          .submitQuizAnswer(itemId, payload, ans.file || undefined)
+          .catch((err) => {
+            console.error("Failed to submit quiz answer", q.id, err);
+          });
+      }),
+    );
     setQuizSubmitted(true);
     const answersRes = await api.getQuizAnswers(itemId);
     if (answersRes.success) {
@@ -1202,22 +1243,24 @@ const CourseItemPreviewPage = () => {
     const dueDate = fullItem?.due_date || item?.due_date;
     const availableFrom =
       fullItem?.available_from || item?.available_from;
-    if (isBeforeAvailableFrom(availableFrom)) {
-      alert("This quiz has not started yet.");
+    if (!hasManualOverride && isBeforeAvailableFrom(availableFrom)) {
+      toast.error("This quiz has not started yet.");
       return;
     }
-    if (isPastDueDate(dueDate)) {
-      alert("The due date for this quiz has passed.");
+    if (!hasManualOverride && isPastDueDate(dueDate)) {
+      toast.error("The due date for this quiz has passed.");
       return;
     }
     if (quizWindowMinutes && !quizStarted) {
-      alert("Start the quiz before submitting answers.");
+      toast.error("Start the quiz before submitting answers.");
       return;
     }
     if (quizTimeUp) {
       // The auto-submit effect below already handles this case the instant
       // time runs out; this is just a safety net against a stray click.
-      alert("Your quiz time is up. Your answers are being submitted automatically.");
+      toast.info(
+        "Your quiz time is up. Your answers are being submitted automatically.",
+      );
       return;
     }
     setQuizSubmitting(true);
@@ -1233,20 +1276,24 @@ const CourseItemPreviewPage = () => {
             (q.question_type === "upload" && !quizAnswers[q.id]?.file)),
       );
       if (requiredUnanswered.length > 0) {
-        if (
-          !window.confirm(
+        const proceed = await confirm({
+          title: "Unanswered questions",
+          message:
             "You have not answered all required questions. Continue anyway?",
-          )
-        ) {
+          confirmLabel: "Submit anyway",
+          cancelLabel: "Go back",
+          tone: "danger",
+        });
+        if (!proceed) {
           setQuizSubmitting(false);
           return;
         }
       }
 
       await submitQuizAnswers();
-      alert("Quiz submitted successfully!");
+      toast.success("Quiz submitted successfully!");
     } catch (err) {
-      alert(err.message || "Failed to submit quiz.");
+      toast.error(err.message || "Failed to submit quiz.");
     } finally {
       setQuizSubmitting(false);
     }
@@ -1904,7 +1951,7 @@ const CourseItemPreviewPage = () => {
                       );
                     })}
                   </div>
-                ) : quizScheduleStatus === "not_started" ? (
+                ) : quizScheduleStatus === "not_started" && !hasManualOverride ? (
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-4 text-sm">
                     {quizScheduleMessage ||
                       "This quiz has not started yet. Questions will appear at the scheduled start time."}
@@ -1914,7 +1961,7 @@ const CourseItemPreviewPage = () => {
                       </p>
                     )}
                   </div>
-                ) : isPastDueDate(displayItem.due_date) ? (
+                ) : isPastDueDate(displayItem.due_date) && !hasManualOverride ? (
                   <div className="bg-violet-50 border border-violet-200 text-brand rounded-xl p-3 text-sm">
                     The submission deadline has passed. You can no longer submit
                     answers for this quiz.
@@ -2294,7 +2341,7 @@ const CourseItemPreviewPage = () => {
       <div className="max-w-7xl mx-auto">
         <Link
           to={`/courses/${slug}`}
-          onClick={guardQuizNavigation}
+          onClick={(e) => guardQuizNavigation(e, `/courses/${slug}`)}
           className="inline-flex items-center space-x-2 text-sm font-medium text-gray-500 hover:text-[#2e0854] transition-colors mb-6 group"
         >
           <HiOutlineArrowLeft className="text-base group-hover:-translate-x-0.5 transition-transform" />

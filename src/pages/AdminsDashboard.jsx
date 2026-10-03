@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "../i18n/LanguageContext";
+import { useAuth } from "../context/AuthContext";
 import { api, getFileUrl } from "../api";
 import ProfileAvatarManager, {
   getUserProfileImage,
 } from "../components/ProfileAvatarManager";
+import {
+  isSubAdmin as checkIsSubAdmin,
+  canDeleteUserWithRole,
+} from "../utils/permissions";
 import {
   HiOutlineMail,
   HiOutlinePhone,
@@ -27,6 +32,16 @@ const AdminsDashboard = () => {
   const { t } = useTranslation();
   const { slug } = useParams();
   const navigate = useNavigate();
+  const { user: currentUser } = useAuth();
+
+  // A sub admin cannot manage access codes, delete courses, delete
+  // student/parent/instructor/admin accounts, or create/edit/deactivate/
+  // reset-password on any OTHER admin account, and can never change anyone's
+  // super_admin/is_sub_admin level (including their own). The backend is the
+  // real enforcement — this only hides actions that would fail anyway.
+  const viewerIsSubAdmin = checkIsSubAdmin(currentUser);
+  const isSelf = (admin) => Number(admin?.id) === Number(currentUser?.id);
+  const canManageAdminTarget = (admin) => !viewerIsSubAdmin || isSelf(admin);
 
   // Core Data States
   const [adminsData, setAdminsData] = useState([]);
@@ -48,6 +63,7 @@ const AdminsDashboard = () => {
     profileImageUrl: null,
     isActive: true,
     superAdmin: false,
+    isSubAdmin: false,
   });
   const [formSubmitLoading, setFormSubmitLoading] = useState(false);
 
@@ -114,6 +130,7 @@ const AdminsDashboard = () => {
       password: "",
       isActive: true,
       superAdmin: false,
+      isSubAdmin: false,
     });
     setIsFormViewActive(true);
   };
@@ -132,6 +149,7 @@ const AdminsDashboard = () => {
       profileImageUrl: getUserProfileImage(admin),
       isActive: admin.is_active,
       superAdmin: admin.roleData?.superAdmin || false,
+      isSubAdmin: admin.roleData?.isSubAdmin || false,
     });
     setIsFormViewActive(true);
   };
@@ -157,6 +175,7 @@ const AdminsDashboard = () => {
           role: "admin",
           isActive: formData.isActive,
           superAdmin: formData.superAdmin,
+          isSubAdmin: formData.isSubAdmin,
         });
         if (response.success) {
           triggerSuccess(t("dashboard.admins.createAccount"));
@@ -167,13 +186,19 @@ const AdminsDashboard = () => {
         }
       } else {
         // Update
+        // A sub admin can never change anyone's super_admin/is_sub_admin
+        // level (their own included), so these fields are left out of the
+        // payload entirely when the viewer is a sub admin — sending them at
+        // all (even unchanged) is rejected by the backend.
         const updateData = {
           firstName: formData.firstName,
           lastName: formData.lastName,
           phone: formData.phone,
           email: formData.email || null,
           isActive: formData.isActive,
-          superAdmin: formData.superAdmin,
+          ...(viewerIsSubAdmin
+            ? {}
+            : { superAdmin: formData.superAdmin, isSubAdmin: formData.isSubAdmin }),
         };
         const response = await api.updateUser(editingId, updateData);
         if (response.success) {
@@ -423,19 +448,39 @@ const AdminsDashboard = () => {
                   {t("dashboard.admins.enableAccount")}
                 </span>
               </label>
-              <label className="flex items-center space-x-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.superAdmin}
-                  onChange={(e) =>
-                    setFormData({ ...formData, superAdmin: e.target.checked })
-                  }
-                  className="w-4 h-4 rounded border-gray-300 text-brand-purple focus:ring-violet-100 accent-brand-purple"
-                />
-                <span className="text-xs text-gray-500">
-                  {t("dashboard.admins.superAdmin")} ({t("dashboard.admins.superAdminDesc")})
-                </span>
-              </label>
+              {/* A sub admin can never change anyone's super_admin/is_sub_admin
+                  level, including their own, so these two controls are
+                  hidden from them entirely (even on their own account). */}
+              {!viewerIsSubAdmin && (
+                <>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.superAdmin}
+                      onChange={(e) =>
+                        setFormData({ ...formData, superAdmin: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-brand-purple focus:ring-violet-100 accent-brand-purple"
+                    />
+                    <span className="text-xs text-gray-500">
+                      {t("dashboard.admins.superAdmin")} ({t("dashboard.admins.superAdminDesc")})
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isSubAdmin}
+                      onChange={(e) =>
+                        setFormData({ ...formData, isSubAdmin: e.target.checked })
+                      }
+                      className="w-4 h-4 rounded border-gray-300 text-brand-purple focus:ring-violet-100 accent-brand-purple"
+                    />
+                    <span className="text-xs text-gray-500">
+                      {t("dashboard.admins.subAdmin")} ({t("dashboard.admins.subAdminDesc")})
+                    </span>
+                  </label>
+                </>
+              )}
             </div>
 
             <div className="pt-4 flex flex-col sm:flex-row gap-3">
@@ -496,36 +541,42 @@ const AdminsDashboard = () => {
           </button>
 
           <div className="flex items-center space-x-2">
-            <button
-              onClick={(e) => handleOpenEditForm(e, activeAdmin)}
-              className="flex items-center space-x-1 border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-semibold transition-all text-gray-500"
-            >
-              <HiOutlinePencil /> <span>{t("dashboard.admins.edit")}</span>
-            </button>
-            <button
-              onClick={(e) =>
-                handleDeleteAdmin(
-                  e,
-                  activeAdmin.id,
-                  `${activeAdmin.first_name} ${activeAdmin.last_name}`,
-                )
-              }
-              className="flex items-center space-x-1 bg-violet-50 hover:bg-violet-100 text-brand-purple px-4 py-2 rounded-xl text-xs font-semibold transition-all"
-            >
-              <HiOutlineTrash /> <span>{t("dashboard.common.delete")}</span>
-            </button>
-            <button
-              onClick={(e) => handleToggleActive(e, activeAdmin)}
-              className={`flex items-center space-x-1 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                activeAdmin.is_active
-                  ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              }`}
-            >
-              {activeAdmin.is_active
-                ? t("dashboard.admins.disableAccount")
-                : t("dashboard.admins.enableAccount")}
-            </button>
+            {canManageAdminTarget(activeAdmin) && (
+              <button
+                onClick={(e) => handleOpenEditForm(e, activeAdmin)}
+                className="flex items-center space-x-1 border border-gray-200 hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-semibold transition-all text-gray-500"
+              >
+                <HiOutlinePencil /> <span>{t("dashboard.admins.edit")}</span>
+              </button>
+            )}
+            {canDeleteUserWithRole(currentUser, "admin") && (
+              <button
+                onClick={(e) =>
+                  handleDeleteAdmin(
+                    e,
+                    activeAdmin.id,
+                    `${activeAdmin.first_name} ${activeAdmin.last_name}`,
+                  )
+                }
+                className="flex items-center space-x-1 bg-violet-50 hover:bg-violet-100 text-brand-purple px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+              >
+                <HiOutlineTrash /> <span>{t("dashboard.common.delete")}</span>
+              </button>
+            )}
+            {canManageAdminTarget(activeAdmin) && (
+              <button
+                onClick={(e) => handleToggleActive(e, activeAdmin)}
+                className={`flex items-center space-x-1 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                  activeAdmin.is_active
+                    ? "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+              >
+                {activeAdmin.is_active
+                  ? t("dashboard.admins.disableAccount")
+                  : t("dashboard.admins.enableAccount")}
+              </button>
+            )}
           </div>
         </div>
 
@@ -578,6 +629,7 @@ const AdminsDashboard = () => {
                   ? t("dashboard.admins.activeLabel")
                   : t("dashboard.admins.disabledLabel")}
                 {roleData?.superAdmin && ` • ${t("dashboard.admins.superAdmin")}`}
+                {roleData?.isSubAdmin && ` • ${t("dashboard.admins.subAdmin")}`}
               </p>
             </div>
           </div>
@@ -629,12 +681,16 @@ const AdminsDashboard = () => {
                   <h4 className="text-sm font-bold text-[#2e0854]">
                     {roleData?.superAdmin
                       ? t("dashboard.admins.superAdmin")
-                      : t("dashboard.shell.administrator")}
+                      : roleData?.isSubAdmin
+                        ? t("dashboard.admins.subAdmin")
+                        : t("dashboard.shell.administrator")}
                   </h4>
                   <p className="text-[10px] text-gray-400 mt-1">
                     {roleData?.superAdmin
                       ? t("dashboard.admins.superAdminDesc")
-                      : t("dashboard.admins.standardAdminDesc")}
+                      : roleData?.isSubAdmin
+                        ? t("dashboard.admins.subAdminDesc")
+                        : t("dashboard.admins.standardAdminDesc")}
                   </p>
                 </div>
               </div>
@@ -657,13 +713,16 @@ const AdminsDashboard = () => {
             {t("dashboard.admins.subtitle")}
           </p>
         </div>
-        <button
-          onClick={handleOpenCreateForm}
-          className="flex items-center justify-center space-x-2 bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-5 py-3.5 rounded-2xl transition-all shadow-lg shadow-brand/10 active:scale-[0.99] shrink-0 focus:outline-none"
-        >
-          <HiOutlinePlus className="text-base" />
-          <span>{t("dashboard.admins.addNew")}</span>
-        </button>
+        {/* A sub admin cannot create other admin accounts. */}
+        {!viewerIsSubAdmin && (
+          <button
+            onClick={handleOpenCreateForm}
+            className="flex items-center justify-center space-x-2 bg-brand hover:bg-brand-dark text-white font-semibold text-sm px-5 py-3.5 rounded-2xl transition-all shadow-lg shadow-brand/10 active:scale-[0.99] shrink-0 focus:outline-none"
+          >
+            <HiOutlinePlus className="text-base" />
+            <span>{t("dashboard.admins.addNew")}</span>
+          </button>
+        )}
       </div>
 
       {successMsg && (
@@ -690,37 +749,43 @@ const AdminsDashboard = () => {
                   ID-{admin.id}
                 </span>
                 <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => handleOpenEditForm(e, admin)}
-                    className="p-1.5 text-gray-400 hover:text-brand-purple rounded-lg hover:bg-gray-50 transition-colors"
-                    title={t("dashboard.admins.edit")}
-                  >
-                    <HiOutlinePencil className="text-xs" />
-                  </button>
-                  <button
-                    onClick={(e) =>
-                      handleDeleteAdmin(
-                        e,
-                        admin.id,
-                        `${admin.first_name} ${admin.last_name}`,
-                      )
-                    }
-                    className="p-1.5 text-gray-400 hover:text-brand-purple rounded-lg hover:bg-gray-50 transition-colors"
-                    title={t("dashboard.common.delete")}
-                  >
-                    <HiOutlineTrash className="text-xs" />
-                  </button>
-                  <button
-                    onClick={(e) => handleToggleActive(e, admin)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                    title={
-                      admin.is_active
-                        ? t("dashboard.admins.disableAccount")
-                        : t("dashboard.admins.enableAccount")
-                    }
-                  >
-                    <HiOutlineCog className="text-xs" />
-                  </button>
+                  {canManageAdminTarget(admin) && (
+                    <button
+                      onClick={(e) => handleOpenEditForm(e, admin)}
+                      className="p-1.5 text-gray-400 hover:text-brand-purple rounded-lg hover:bg-gray-50 transition-colors"
+                      title={t("dashboard.admins.edit")}
+                    >
+                      <HiOutlinePencil className="text-xs" />
+                    </button>
+                  )}
+                  {canDeleteUserWithRole(currentUser, "admin") && (
+                    <button
+                      onClick={(e) =>
+                        handleDeleteAdmin(
+                          e,
+                          admin.id,
+                          `${admin.first_name} ${admin.last_name}`,
+                        )
+                      }
+                      className="p-1.5 text-gray-400 hover:text-brand-purple rounded-lg hover:bg-gray-50 transition-colors"
+                      title={t("dashboard.common.delete")}
+                    >
+                      <HiOutlineTrash className="text-xs" />
+                    </button>
+                  )}
+                  {canManageAdminTarget(admin) && (
+                    <button
+                      onClick={(e) => handleToggleActive(e, admin)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                      title={
+                        admin.is_active
+                          ? t("dashboard.admins.disableAccount")
+                          : t("dashboard.admins.enableAccount")
+                      }
+                    >
+                      <HiOutlineCog className="text-xs" />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -752,6 +817,12 @@ const AdminsDashboard = () => {
                   <span className="inline-flex items-center text-[9px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
                     <HiOutlineBadgeCheck className="mr-0.5 text-[10px]" />
                     {t("dashboard.admins.superAdmin")}
+                  </span>
+                )}
+                {admin.roleData?.isSubAdmin && (
+                  <span className="inline-flex items-center text-[9px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full">
+                    <HiOutlineBadgeCheck className="mr-0.5 text-[10px]" />
+                    {t("dashboard.admins.subAdmin")}
                   </span>
                 )}
                 {!admin.is_active && (

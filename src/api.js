@@ -676,6 +676,24 @@ export const api = {
     return await fetchClient(`/chapter-items/${id}/unlocks`, { method: "GET" });
   },
 
+  // ==================================================================
+  // --- STUDENT ACCESS OVERRIDES (admin/assistant "Student Access" tab) ---
+  // ==================================================================
+
+  getStudentCourseAccess: async (courseId, studentId) => {
+    return await fetchClient(
+      `/manual-access/courses/${courseId}/students/${studentId}`,
+      { method: "GET" },
+    );
+  },
+
+  resetQuizAttemptForStudent: async (itemId, studentId) => {
+    return await fetchClient(`/manual-access/quizzes/${itemId}/reset`, {
+      method: "POST",
+      body: JSON.stringify({ studentId }),
+    });
+  },
+
   getZoomJoinCredentials: async (itemId) => {
     return await fetchClient(`/zoom/join/${itemId}`, { method: "GET" });
   },
@@ -1030,6 +1048,135 @@ export const api = {
 
   gradeQuizAnswer: async (answerId, score, feedback) => {
     return await fetchClient(`/quiz/answers/${answerId}/grade`, {
+      method: "PUT",
+      body: JSON.stringify({ score, feedback }),
+    });
+  },
+
+  // ==================================================================
+  // --- MONTH QUIZ (course-level, not tied to a chapter) ---
+  // ==================================================================
+
+  // ── The quiz itself ──
+  // Month Quizzes are a standalone section (not tied to a course).
+  createCourseQuiz: async (quizData) => {
+    return await fetchClient(`/course-quizzes`, {
+      method: "POST",
+      body: JSON.stringify(quizData),
+    });
+  },
+
+  getCourseQuizzes: async () => {
+    return await fetchClient(`/course-quizzes`, {
+      method: "GET",
+    });
+  },
+
+  updateCourseQuiz: async (courseQuizId, quizData) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}`, {
+      method: "PUT",
+      body: JSON.stringify(quizData),
+    });
+  },
+
+  deleteCourseQuiz: async (courseQuizId) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // Let one student repeat a Month Quiz (mirrors "Allow repeat" for lesson quizzes).
+  resetCourseQuizAttempt: async (courseQuizId, studentId) => {
+    return await fetchClient(
+      `/course-quizzes/${courseQuizId}/students/${studentId}/reset`,
+      { method: "POST" },
+    );
+  },
+
+  // ── Questions ──
+  createCourseQuizQuestion: async (courseQuizId, questionData) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}/questions`, {
+      method: "POST",
+      body:
+        questionData instanceof FormData
+          ? questionData
+          : JSON.stringify(questionData),
+    });
+  },
+
+  updateCourseQuizQuestion: async (questionId, questionData) => {
+    return await fetchClient(`/course-quizzes/questions/${questionId}`, {
+      method: "PUT",
+      body:
+        questionData instanceof FormData
+          ? questionData
+          : JSON.stringify(questionData),
+    });
+  },
+
+  deleteCourseQuizQuestion: async (questionId) => {
+    return await fetchClient(`/course-quizzes/questions/${questionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  getCourseQuizQuestions: async (courseQuizId) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}/questions`, {
+      method: "GET",
+    });
+  },
+
+  // ── Options (for MCQ) ──
+  createCourseQuizOption: async (questionId, optionData) => {
+    return await fetchClient(
+      `/course-quizzes/questions/${questionId}/options`,
+      { method: "POST", body: JSON.stringify(optionData) },
+    );
+  },
+
+  updateCourseQuizOption: async (optionId, optionData) => {
+    return await fetchClient(`/course-quizzes/options/${optionId}`, {
+      method: "PUT",
+      body: JSON.stringify(optionData),
+    });
+  },
+
+  deleteCourseQuizOption: async (optionId) => {
+    return await fetchClient(`/course-quizzes/options/${optionId}`, {
+      method: "DELETE",
+    });
+  },
+
+  // ── Student Answers ──
+  submitCourseQuizAnswer: async (courseQuizId, answerData, file) => {
+    const formData = new FormData();
+    for (const key in answerData) {
+      if (answerData[key] !== undefined && answerData[key] !== null) {
+        formData.append(key, answerData[key]);
+      }
+    }
+    if (file) formData.append("file", file);
+    return await fetchClient(`/course-quizzes/${courseQuizId}/answer`, {
+      method: "POST",
+      body: formData,
+    });
+  },
+
+  getCourseQuizAnswers: async (courseQuizId) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}/answers`, {
+      method: "GET",
+    });
+  },
+
+  // Start (or resume) the student's timed attempt for a Month Quiz.
+  startCourseQuizAttempt: async (courseQuizId) => {
+    return await fetchClient(`/course-quizzes/${courseQuizId}/attempt/start`, {
+      method: "POST",
+    });
+  },
+
+  gradeCourseQuizAnswer: async (answerId, score, feedback) => {
+    return await fetchClient(`/course-quizzes/answers/${answerId}/grade`, {
       method: "PUT",
       body: JSON.stringify({ score, feedback }),
     });

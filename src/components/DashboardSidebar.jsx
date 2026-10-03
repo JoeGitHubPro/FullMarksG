@@ -21,7 +21,7 @@ const DashboardSidebar = ({
 }) => {
   const { user } = useAuth();
   const { t, isRtl } = useTranslation();
-  const navigationTabs = getDashboardTabsForRole(user?.role);
+  const navigationTabs = getDashboardTabsForRole(user?.role, user?.isSubAdmin);
   const CollapseIcon = isRtl
     ? isCollapsed
       ? HiOutlineChevronLeft

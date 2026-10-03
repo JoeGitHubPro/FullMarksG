@@ -19,6 +19,8 @@ import {
   HiOutlineCreditCard,
   HiOutlineChat,
   HiOutlineShieldCheck,
+  HiOutlineAdjustments,
+  HiOutlinePencilAlt,
 } from "react-icons/hi";
 
 export const DASHBOARD_TAB_KEYS = {
@@ -30,6 +32,7 @@ export const DASHBOARD_TAB_KEYS = {
   PAYMENTS: "payments",
   ASSIGNMENTS: "assignments",
   QUIZZES: "quizzes",
+  MONTH_QUIZZES: "monthQuizzes",
   CURRICULUMS: "curriculums",
   LEVELS: "levels",
   SUBJECTS: "subjects",
@@ -42,6 +45,7 @@ export const DASHBOARD_TAB_KEYS = {
   AI_CHATBOT: "aiChatbot",
   WHATSAPP: "whatsapp",
   REGISTRATION_OTPS: "registrationOtps",
+  STUDENT_ACCESS: "studentAccess",
 };
 
 export const DASHBOARD_TABS = [
@@ -84,6 +88,11 @@ export const DASHBOARD_TABS = [
     key: DASHBOARD_TAB_KEYS.QUIZZES,
     path: "dashboard/quizzes",
     icon: HiOutlineDocumentReport,
+  },
+  {
+    key: DASHBOARD_TAB_KEYS.MONTH_QUIZZES,
+    path: "dashboard/month-quizzes",
+    icon: HiOutlinePencilAlt,
   },
   {
     key: DASHBOARD_TAB_KEYS.CURRICULUMS,
@@ -145,6 +154,11 @@ export const DASHBOARD_TABS = [
     path: "dashboard/registration-otps",
     icon: HiOutlineShieldCheck,
   },
+  {
+    key: DASHBOARD_TAB_KEYS.STUDENT_ACCESS,
+    path: "dashboard/student-access",
+    icon: HiOutlineAdjustments,
+  },
 ];
 
 export const ROLE_TAB_KEYS = {
@@ -157,6 +171,7 @@ export const ROLE_TAB_KEYS = {
     DASHBOARD_TAB_KEYS.PAYMENTS,
     DASHBOARD_TAB_KEYS.ASSIGNMENTS,
     DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.MONTH_QUIZZES,
     DASHBOARD_TAB_KEYS.CURRICULUMS,
     DASHBOARD_TAB_KEYS.LEVELS,
     DASHBOARD_TAB_KEYS.SUBJECTS,
@@ -169,6 +184,7 @@ export const ROLE_TAB_KEYS = {
     DASHBOARD_TAB_KEYS.AI_CHATBOT,
     DASHBOARD_TAB_KEYS.WHATSAPP,
     DASHBOARD_TAB_KEYS.REGISTRATION_OTPS,
+    DASHBOARD_TAB_KEYS.STUDENT_ACCESS,
   ],
   instructor: [
     DASHBOARD_TAB_KEYS.DASHBOARD,
@@ -177,6 +193,7 @@ export const ROLE_TAB_KEYS = {
     DASHBOARD_TAB_KEYS.ACCESS_CODES,
     DASHBOARD_TAB_KEYS.ASSIGNMENTS,
     DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.MONTH_QUIZZES,
     DASHBOARD_TAB_KEYS.STUDENTS,
     DASHBOARD_TAB_KEYS.PARENTS,
     DASHBOARD_TAB_KEYS.SUPPORT,
@@ -188,13 +205,20 @@ export const ROLE_TAB_KEYS = {
     DASHBOARD_TAB_KEYS.COURSES,
     DASHBOARD_TAB_KEYS.ASSIGNMENTS,
     DASHBOARD_TAB_KEYS.QUIZZES,
+    DASHBOARD_TAB_KEYS.MONTH_QUIZZES,
     DASHBOARD_TAB_KEYS.STUDENTS,
     DASHBOARD_TAB_KEYS.PARENTS,
     DASHBOARD_TAB_KEYS.SUPPORT,
+    DASHBOARD_TAB_KEYS.STUDENT_ACCESS,
   ],
 };
 
-export const getDashboardTabsForRole = (role) => {
+export const getDashboardTabsForRole = (role, isSubAdmin = false) => {
   const allowed = ROLE_TAB_KEYS[role] || ROLE_TAB_KEYS.admin;
-  return DASHBOARD_TABS.filter((tab) => allowed.includes(tab.key));
+  return DASHBOARD_TABS.filter((tab) => {
+    if (!allowed.includes(tab.key)) return false;
+    // A sub admin cannot manage access codes, so hide that tab entirely.
+    if (isSubAdmin && tab.key === DASHBOARD_TAB_KEYS.ACCESS_CODES) return false;
+    return true;
+  });
 };

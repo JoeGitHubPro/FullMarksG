@@ -33,6 +33,7 @@ export default {
     about: "About",
     profile: "Profile",
     dashboard: "Dashboard",
+    quizzes: "Quizzes",
     loadingLevels: "Loading levels...",
     noLevels: "No levels available",
   },
@@ -614,6 +615,18 @@ export default {
     itemTypes: {
       assignment: "assignment",
       quiz: "quiz",
+    },
+    monthQuizzes: {
+      title: "Month Quizzes",
+      subtitle: "Your monthly quizzes and their results.",
+      noQuizzes: "No quizzes available right now.",
+      open: "Open",
+      notStarted: "Not started yet",
+      closed: "Closed",
+      pendingGrade: "Pending grading",
+      graded: "Graded",
+      takeQuiz: "Take Quiz",
+      viewQuiz: "View",
     },
   },
   support: {

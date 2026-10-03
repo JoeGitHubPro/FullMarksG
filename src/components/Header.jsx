@@ -22,6 +22,9 @@ const NAV_LINKS = [
   { to: "/contact", labelKey: "nav.contact" },
 ];
 
+// Extra link shown only to logged-in students: the standalone Month Quizzes.
+const STUDENT_NAV_LINKS = [{ to: "/quizzes", labelKey: "nav.quizzes" }];
+
 const Header = () => {
   const { user, logout, isAuthenticated } = useAuth();
   const { t } = useTranslation();
@@ -63,6 +66,11 @@ const Header = () => {
     return location.pathname === to || location.pathname.startsWith(`${to}/`);
   };
 
+  const navLinks =
+    isAuthenticated && user?.role === "student"
+      ? [...NAV_LINKS, ...STUDENT_NAV_LINKS]
+      : NAV_LINKS;
+
   const navLinkClass = (active) =>
     `relative px-1 py-2 text-sm font-medium transition-colors ${
       active
@@ -79,7 +87,7 @@ const Header = () => {
           </Link>
 
           <nav className="hidden lg:flex items-center gap-7">
-            {NAV_LINKS.map(({ to, labelKey, end }) => (
+            {navLinks.map(({ to, labelKey, end }) => (
               <Link
                 key={to}
                 to={to}
@@ -150,7 +158,7 @@ const Header = () => {
         </div>
 
         <nav className="flex flex-col gap-1 px-3 py-4">
-          {NAV_LINKS.map(({ to, labelKey, end }) => {
+          {navLinks.map(({ to, labelKey, end }) => {
             const active = isActiveLink(to, end);
             return (
               <Link
