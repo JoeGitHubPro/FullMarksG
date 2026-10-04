@@ -42,7 +42,10 @@ import CategoriesDashboard from "./pages/CategoriesDashboard";
 import PaymentsDashboard from "./pages/PaymentsDashboard";
 import WhatsAppDashboard from "./pages/WhatsAppDashboard";
 import RegistrationOtpsDashboard from "./pages/RegistrationOtpsDashboard";
+import CrmDashboard from "./pages/CrmDashboard";
 import StudentAccessDashboard from "./pages/StudentAccessDashboard";
+
+
 import PaymentReturnPage from "./pages/PaymentReturnPage";
 
 import ProfilePage from "./pages/ProfilePage";
@@ -235,6 +238,15 @@ function App() {
           element={
             <RoleBasedRoute allowedRoles={["admin"]}>
               <WhatsAppDashboard />
+            </RoleBasedRoute>
+          }
+        />
+
+        <Route
+          path="crm"
+          element={
+            <RoleBasedRoute allowedRoles={["admin", "assistant"]}>
+              <CrmDashboard />
             </RoleBasedRoute>
           }
         />

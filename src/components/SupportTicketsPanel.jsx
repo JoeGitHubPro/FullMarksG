@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
+import { Link } from "react-router-dom";
+import { FaWhatsapp, FaFacebookMessenger } from "react-icons/fa";
 import api, { getFileUrl } from "../api";
 import {
   getSupportChannels,
@@ -20,6 +22,15 @@ import {
   HiOutlinePhotograph,
   HiOutlineX,
 } from "react-icons/hi";
+
+// Tickets opened from a CRM chat (WhatsApp / Messenger).
+const CRM_CHANNEL_ICON = { whatsapp: FaWhatsapp, facebook: FaFacebookMessenger };
+const crmCustomerName = (ticket) =>
+  [ticket.customer_first_name, ticket.customer_last_name].filter(Boolean).join(" ") ||
+  ticket.crm_contact_name ||
+  ticket.crm_contact_phone ||
+  "";
+const STAFF_ROLES = ["admin", "assistant", "instructor"];
 
 // Local object-URL preview for a pending image attachment, with its own
 // cleanup so repeated picks don't leak blob URLs.
@@ -64,6 +75,7 @@ const SupportTicketsPanel = ({
   fixedCourseId = null,
   fixedCourseTitle = "",
   compact = false,
+  initialTicketId = null,
 }) => {
   const { t } = useTranslation();
   const channels = useMemo(() => getSupportChannels(t), [t]);
@@ -112,6 +124,12 @@ const SupportTicketsPanel = ({
     targetUserId: "",
   });
   const [formSubmitLoading, setFormSubmitLoading] = useState(false);
+  // CRM-linked tickets: deliver replies / status updates to the customer.
+  const [sendToCustomer, setSendToCustomer] = useState(true);
+  const [notifyCustomer, setNotifyCustomer] = useState(true);
+  const openedInitialRef = useRef(false);
+  const lastTicketIdRef = useRef(null);
+  const isStaffUser = STAFF_ROLES.includes(userRole);
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -142,6 +160,11 @@ const SupportTicketsPanel = ({
     try {
       const response = await api.getTicketById(ticketId);
       if (response.success) {
+        if (lastTicketIdRef.current !== response.data.id) {
+          lastTicketIdRef.current = response.data.id;
+          setSendToCustomer(true);
+          setNotifyCustomer(true);
+        }
         setSelectedTicket(response.data);
         setChatMessage("");
         setChatImage(null);
@@ -163,6 +186,15 @@ const SupportTicketsPanel = ({
     setChatImage(null);
     fetchTickets();
   }, [channel, filters.status, filters.category, filters.priority, fixedCourseId]);
+
+  // Deep link (?ticket=<id>), e.g. from the CRM contact panel.
+  useEffect(() => {
+    if (initialTicketId && !openedInitialRef.current) {
+      openedInitialRef.current = true;
+      fetchTicketDetails(initialTicketId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTicketId]);
 
   const handleCreateTicketSubmit = async (e) => {
     e.preventDefault();
@@ -224,8 +256,13 @@ const SupportTicketsPanel = ({
         selectedTicket.id,
         chatMessage,
         chatImage,
+        { sendToCustomer: !!selectedTicket.crm_conversation_id && isStaffUser && sendToCustomer },
       );
       if (response.success) {
+        const delivery = response.data?.customerDelivery;
+        if (delivery && delivery.sent === false) {
+          setError(t("dashboard.support.crm.deliveryFailed", { detail: delivery.error || "" }));
+        }
         setChatMessage("");
         setChatImage(null);
         if (chatFileInputRef.current) chatFileInputRef.current.value = "";
@@ -241,8 +278,14 @@ const SupportTicketsPanel = ({
 
   const handleStatusChange = async (status) => {
     try {
-      const response = await api.updateTicketStatus(selectedTicket.id, status);
+      const response = await api.updateTicketStatus(selectedTicket.id, status, {
+        notifyCustomer,
+      });
       if (response.success) {
+        const note = response.data?.customerNotification;
+        if (note && note.sent === false) {
+          setError(t("dashboard.support.crm.deliveryFailed", { detail: note.error || "" }));
+        }
         setSuccessMsg(
           `${t("dashboard.common.status")}: ${getStatusLabel(status)}`,
         );
@@ -426,6 +469,20 @@ const SupportTicketsPanel = ({
                             {ticket.course_title}
                           </span>
                         )}
+                        {ticket.crm_conversation_id && (() => {
+                          const Icon = CRM_CHANNEL_ICON[ticket.crm_channel] || FaWhatsapp;
+                          return (
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${
+                                ticket.crm_channel === "facebook"
+                                  ? "bg-blue-50 text-blue-600"
+                                  : "bg-green-50 text-green-700"
+                              }`}
+                            >
+                              <Icon /> CRM · {crmCustomerName(ticket)}
+                            </span>
+                          );
+                        })()}
                       </div>
                       <h3 className="text-base font-bold group-hover:text-brand-purple transition-colors">
                         {ticket.subject}
@@ -792,6 +849,49 @@ const SupportTicketsPanel = ({
                     </div>
                   </div>
                 </div>
+
+                {selectedTicket.crm_conversation_id && (() => {
+                  const Icon = CRM_CHANNEL_ICON[selectedTicket.crm_channel] || FaWhatsapp;
+                  return (
+                    <div className="pt-2 border-t border-gray-50 space-y-2">
+                      <span className="text-[10px] text-gray-400 font-bold uppercase">
+                        {t("dashboard.support.crm.fromChat")}
+                      </span>
+                      <div className="flex items-center gap-2 text-[11px] text-gray-500 bg-gray-50 p-2 rounded-xl">
+                        <Icon
+                          className={selectedTicket.crm_channel === "facebook" ? "text-blue-600" : "text-green-600"}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[#2e0854] truncate">{crmCustomerName(selectedTicket)}</p>
+                          {selectedTicket.crm_contact_phone && (
+                            <p className="font-mono text-[10px]" dir="ltr">
+                              {selectedTicket.crm_contact_phone}
+                            </p>
+                          )}
+                        </div>
+                        {isStaffUser && (
+                          <Link
+                            to={`/dashboard/crm?conversation=${selectedTicket.crm_conversation_id}`}
+                            className="text-[10px] font-semibold text-brand-purple hover:underline shrink-0"
+                          >
+                            {t("dashboard.support.crm.openChat")}
+                          </Link>
+                        )}
+                      </div>
+                      {canManageMeta && (
+                        <label className="flex items-start gap-2 text-[11px] text-gray-500">
+                          <input
+                            type="checkbox"
+                            checked={notifyCustomer}
+                            onChange={(e) => setNotifyCustomer(e.target.checked)}
+                            className="mt-0.5"
+                          />
+                          {t("dashboard.support.crm.notifyOnStatus")}
+                        </label>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
@@ -861,6 +961,21 @@ const SupportTicketsPanel = ({
               onSubmit={handleSendChatMessage}
               className="p-4 bg-white border-t border-gray-50 space-y-3"
             >
+              {selectedTicket.crm_conversation_id && isStaffUser && selectedTicket.status !== "closed" && (
+                <label className="flex items-center gap-2 text-[11px] text-gray-500">
+                  <input
+                    type="checkbox"
+                    checked={sendToCustomer}
+                    onChange={(e) => setSendToCustomer(e.target.checked)}
+                  />
+                  {selectedTicket.crm_channel === "facebook"
+                    ? t("dashboard.support.crm.sendToCustomerMessenger")
+                    : t("dashboard.support.crm.sendToCustomerWhatsapp")}
+                  {!sendToCustomer && (
+                    <span className="text-gray-400">· {t("dashboard.support.crm.internalOnly")}</span>
+                  )}
+                </label>
+              )}
               {chatImage && (
                 <AttachmentPreview
                   file={chatImage}

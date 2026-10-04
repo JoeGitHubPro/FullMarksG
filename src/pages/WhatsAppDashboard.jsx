@@ -38,8 +38,16 @@ const formatDate = (value) => {
   return date.toLocaleString();
 };
 
+// Two independent gateway sessions: the platform number (OTPs, contact
+// form, parent reports) and the customer-service number behind the CRM inbox.
+const SESSION_CHANNELS = ["otp", "crm"];
+
 const WhatsAppDashboard = () => {
   const { t } = useTranslation();
+  const [channel, setChannel] = useState("otp");
+  // Ignore late responses for the session the admin just switched away from.
+  const channelRef = useRef(channel);
+  channelRef.current = channel;
   const [status, setStatus] = useState(null);
   const [qr, setQr] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +67,8 @@ const WhatsAppDashboard = () => {
   const fetchStatus = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const res = await api.getWhatsAppStatus();
+      const res = await api.getWhatsAppStatus(channel);
+      if (channelRef.current !== channel) return;
       if (res.success) {
         setStatus(res.data);
         setError("");
@@ -73,22 +82,31 @@ const WhatsAppDashboard = () => {
     } finally {
       if (!silent) setLoading(false);
     }
-  }, [t]);
+  }, [t, channel]);
 
   const fetchQr = useCallback(async () => {
     try {
-      const res = await api.getWhatsAppQrCode();
+      const res = await api.getWhatsAppQrCode(channel);
+      if (channelRef.current !== channel) return;
       if (res.success) setQr(res.data);
     } catch {
       // QR isn't ready yet or the session moved on — the next status poll
       // will correct the view.
     }
-  }, []);
+  }, [channel]);
 
+  // (Re)load whenever the admin switches between the OTP and CRM sessions.
   useEffect(() => {
+    setStatus(null);
+    setQr(null);
+    setPairingCode(null);
+    setShowPairing(false);
+    setPhoneNumber("");
+    setError("");
+    setSuccessMsg("");
     fetchStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [channel]);
 
   // Poll while the session is in a transitional state so the QR / status
   // stays live without the admin having to refresh.
@@ -127,19 +145,19 @@ const WhatsAppDashboard = () => {
   };
 
   const handleStart = () =>
-    runAction(api.startWhatsAppSession, "dashboard.whatsapp.started");
+    runAction(() => api.startWhatsAppSession(channel), "dashboard.whatsapp.started");
 
   const handleStop = () =>
-    runAction(api.stopWhatsAppSession, "dashboard.whatsapp.stopped");
+    runAction(() => api.stopWhatsAppSession(channel), "dashboard.whatsapp.stopped");
 
   const handleLogout = () => {
     if (!window.confirm(t("dashboard.whatsapp.logoutConfirm"))) return;
-    runAction(api.logoutWhatsAppSession, "dashboard.whatsapp.loggedOut");
+    runAction(() => api.logoutWhatsAppSession(channel), "dashboard.whatsapp.loggedOut");
   };
 
   const handleForceKill = () => {
     if (!window.confirm(t("dashboard.whatsapp.forceKillConfirm"))) return;
-    runAction(api.forceKillWhatsAppSession, "dashboard.whatsapp.forceKilled");
+    runAction(() => api.forceKillWhatsAppSession(channel), "dashboard.whatsapp.forceKilled");
   };
 
   const handleRequestPairingCode = async (e) => {
@@ -148,7 +166,7 @@ const WhatsAppDashboard = () => {
     setActionLoading(true);
     setError("");
     try {
-      const res = await api.requestWhatsAppPairingCode(phoneNumber.trim());
+      const res = await api.requestWhatsAppPairingCode(phoneNumber.trim(), channel);
       if (res.success) {
         setPairingCode(res.data.pairingCode);
       } else {
@@ -161,13 +179,6 @@ const WhatsAppDashboard = () => {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="h-96 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   const s = status?.status;
   const engineLoaded = !!status?.engineLoaded;
@@ -190,6 +201,29 @@ const WhatsAppDashboard = () => {
         </p>
       </div>
 
+      <div className="space-y-2">
+        <div className="inline-flex gap-1 bg-gray-50 rounded-xl p-1">
+          {SESSION_CHANNELS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setChannel(c)}
+              disabled={actionLoading}
+              className={`text-xs font-semibold rounded-lg px-4 py-2 transition-all ${
+                channel === c
+                  ? "bg-white shadow-sm text-brand-purple"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {t(`dashboard.whatsapp.channels.${c}`)}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-400">
+          {t(`dashboard.whatsapp.channelHints.${channel}`)}
+        </p>
+      </div>
+
       {successMsg && (
         <div className="p-3 bg-green-50 border border-green-100 text-green-700 rounded-xl text-xs font-semibold">
           {successMsg}
@@ -201,6 +235,11 @@ const WhatsAppDashboard = () => {
         </div>
       )}
 
+      {loading ? (
+        <div className="h-64 flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
       <div className="bg-white border border-gray-100 rounded-3xl p-6 shadow-sm space-y-5">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
@@ -374,6 +413,7 @@ const WhatsAppDashboard = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };

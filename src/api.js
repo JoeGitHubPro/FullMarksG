@@ -805,11 +805,15 @@ export const api = {
     return await fetchClient(`/tickets/${id}`, { method: "GET" });
   },
 
-  addTicketMessage: async (id, messageText, attachment) => {
+  // options.sendToCustomer: for tickets opened from a CRM chat, also deliver
+  // the reply to the customer over WhatsApp / Messenger.
+  addTicketMessage: async (id, messageText, attachment, options = {}) => {
+    const sendToCustomer = !!options.sendToCustomer;
     if (attachment) {
       const formData = new FormData();
       formData.append("message", messageText || "");
       formData.append("attachment", attachment);
+      if (sendToCustomer) formData.append("sendToCustomer", "true");
       return await fetchClient(`/tickets/${id}/messages`, {
         method: "POST",
         body: formData,
@@ -817,14 +821,16 @@ export const api = {
     }
     return await fetchClient(`/tickets/${id}/messages`, {
       method: "POST",
-      body: JSON.stringify({ message: messageText }),
+      body: JSON.stringify({ message: messageText, sendToCustomer }),
     });
   },
 
-  updateTicketStatus: async (id, status) => {
+  // options.notifyCustomer (default true): CRM-linked tickets send the
+  // customer a short status update.
+  updateTicketStatus: async (id, status, options = {}) => {
     return await fetchClient(`/tickets/${id}/status`, {
       method: "PUT",
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, notifyCustomer: options.notifyCustomer !== false }),
     });
   },
 
@@ -1434,35 +1440,109 @@ export const api = {
   },
 
   // ==================================================================
-  // --- WHATSAPP SESSION (admin only) ---
+  // --- CRM INBOX (admin + assistant) ---
   // ==================================================================
 
-  getWhatsAppStatus: async () => {
-    return await fetchClient("/whatsapp/status", { method: "GET" });
+  getCrmConversations: async ({ status = "open", filter = "", search = "", channel = "" } = {}) => {
+    const params = new URLSearchParams({ status });
+    if (channel) params.set("channel", channel);
+    if (filter) params.set("filter", filter);
+    if (search) params.set("search", search);
+    return await fetchClient(`/crm/conversations?${params.toString()}`, {
+      method: "GET",
+    });
   },
 
-  getWhatsAppQrCode: async () => {
-    return await fetchClient("/whatsapp/qr", { method: "GET" });
+  getCrmMessages: async (conversationId, afterId = 0) => {
+    const query = afterId ? `?afterId=${afterId}` : "";
+    return await fetchClient(
+      `/crm/conversations/${conversationId}/messages${query}`,
+      { method: "GET" },
+    );
   },
 
-  startWhatsAppSession: async () => {
-    return await fetchClient("/whatsapp/start", { method: "POST" });
+  sendCrmMessage: async (conversationId, text) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
   },
 
-  stopWhatsAppSession: async () => {
-    return await fetchClient("/whatsapp/stop", { method: "POST" });
+  updateCrmConversation: async (conversationId, changes) => {
+    return await fetchClient(`/crm/conversations/${conversationId}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
   },
 
-  logoutWhatsAppSession: async () => {
-    return await fetchClient("/whatsapp/logout", { method: "POST" });
+  linkCrmConversation: async (conversationId, phone) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/link`, {
+      method: "PUT",
+      body: JSON.stringify({ phone }),
+    });
   },
 
-  forceKillWhatsAppSession: async () => {
-    return await fetchClient("/whatsapp/force-kill", { method: "POST" });
+  getCrmConversationProfile: async (conversationId) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/profile`, {
+      method: "GET",
+    });
   },
 
-  requestWhatsAppPairingCode: async (phoneNumber) => {
-    return await fetchClient("/whatsapp/pairing-code", {
+  getCrmWebhookStatus: async () => {
+    return await fetchClient("/crm/whatsapp/webhook", { method: "GET" });
+  },
+
+  registerCrmWebhook: async () => {
+    return await fetchClient("/crm/whatsapp/webhook", { method: "POST" });
+  },
+
+  createCrmTicket: async (conversationId, payload) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/tickets`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getCrmMessengerSetup: async () => {
+    return await fetchClient("/crm/messenger/setup", { method: "GET" });
+  },
+
+  connectCrmMessenger: async () => {
+    return await fetchClient("/crm/messenger/setup", { method: "POST" });
+  },
+
+  // ==================================================================
+  // --- WHATSAPP SESSIONS (admin only) ---
+  // channel: "otp" (platform number — OTPs & notifications, default) or
+  //          "crm" (customer-service number feeding the CRM inbox).
+  // ==================================================================
+
+  getWhatsAppStatus: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/status?channel=${channel}`, { method: "GET" });
+  },
+
+  getWhatsAppQrCode: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/qr?channel=${channel}`, { method: "GET" });
+  },
+
+  startWhatsAppSession: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/start?channel=${channel}`, { method: "POST" });
+  },
+
+  stopWhatsAppSession: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/stop?channel=${channel}`, { method: "POST" });
+  },
+
+  logoutWhatsAppSession: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/logout?channel=${channel}`, { method: "POST" });
+  },
+
+  forceKillWhatsAppSession: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/force-kill?channel=${channel}`, { method: "POST" });
+  },
+
+  requestWhatsAppPairingCode: async (phoneNumber, channel = "otp") => {
+    return await fetchClient(`/whatsapp/pairing-code?channel=${channel}`, {
       method: "POST",
       body: JSON.stringify({ phoneNumber }),
     });

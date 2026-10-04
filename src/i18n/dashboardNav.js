@@ -19,8 +19,10 @@ import {
   HiOutlineCreditCard,
   HiOutlineChat,
   HiOutlineShieldCheck,
+
   HiOutlineAdjustments,
   HiOutlinePencilAlt,
+  HiOutlineChatAlt2,
 } from "react-icons/hi";
 
 export const DASHBOARD_TAB_KEYS = {
@@ -45,7 +47,11 @@ export const DASHBOARD_TAB_KEYS = {
   AI_CHATBOT: "aiChatbot",
   WHATSAPP: "whatsapp",
   REGISTRATION_OTPS: "registrationOtps",
+
+  CRM: "crm",
   STUDENT_ACCESS: "studentAccess",
+
+
 };
 
 export const DASHBOARD_TABS = [
@@ -135,6 +141,11 @@ export const DASHBOARD_TABS = [
     icon: HiOutlineLockClosed,
   },
   {
+    key: DASHBOARD_TAB_KEYS.CRM,
+    path: "dashboard/crm",
+    icon: HiOutlineChatAlt2,
+  },
+  {
     key: DASHBOARD_TAB_KEYS.SUPPORT,
     path: "dashboard/support",
     icon: HiOutlineSupport,
@@ -180,6 +191,7 @@ export const ROLE_TAB_KEYS = {
     DASHBOARD_TAB_KEYS.STUDENTS,
     DASHBOARD_TAB_KEYS.PARENTS,
     DASHBOARD_TAB_KEYS.ADMINS,
+    DASHBOARD_TAB_KEYS.CRM,
     DASHBOARD_TAB_KEYS.SUPPORT,
     DASHBOARD_TAB_KEYS.AI_CHATBOT,
     DASHBOARD_TAB_KEYS.WHATSAPP,
@@ -201,6 +213,7 @@ export const ROLE_TAB_KEYS = {
   ],
   assistant: [
     DASHBOARD_TAB_KEYS.DASHBOARD,
+    DASHBOARD_TAB_KEYS.CRM,
     DASHBOARD_TAB_KEYS.PROFILE,
     DASHBOARD_TAB_KEYS.COURSES,
     DASHBOARD_TAB_KEYS.ASSIGNMENTS,

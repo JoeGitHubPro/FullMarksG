@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "../i18n/LanguageContext";
 import api from "../api";
 import SupportTicketsPanel from "../components/SupportTicketsPanel";
@@ -9,7 +10,13 @@ const SupportDashboard = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const role = user?.role || "student";
-  const [activeChannel, setActiveChannel] = useState("admin");
+  // Deep link: /dashboard/support?channel=<admin|staff|course>&ticket=<id>
+  const [searchParams] = useSearchParams();
+  const linkedChannel = searchParams.get("channel");
+  const linkedTicketId = Number(searchParams.get("ticket")) || null;
+  const [activeChannel, setActiveChannel] = useState(
+    ["admin", "staff", "course"].includes(linkedChannel) ? linkedChannel : "admin",
+  );
   const [assistants, setAssistants] = useState([]);
   const channels = useMemo(() => getSupportChannels(t), [t]);
 
@@ -95,6 +102,7 @@ const SupportDashboard = () => {
         canManageMeta={canManageMeta}
         showFilters={role === "admin" && activeChannel === "admin"}
         assistants={assistants}
+        initialTicketId={activeChannel === linkedChannel || !linkedChannel ? linkedTicketId : null}
       />
     </div>
   );
