@@ -150,6 +150,30 @@ const WhatsAppDashboard = () => {
   const handleStop = () =>
     runAction(() => api.stopWhatsAppSession(channel), "dashboard.whatsapp.stopped");
 
+  // Lets ANY WhatsApp number link next: the gateway binds a session to the
+  // first number that linked it; logout clears that binding (see backend).
+  const handleReleaseNumber = async () => {
+    const bound = status?.phone ? ` (${status.phone})` : "";
+    if (!window.confirm(t("dashboard.whatsapp.releaseConfirm", { phone: bound }))) return;
+    setActionLoading(true);
+    setError("");
+    try {
+      const res = await api.releaseWhatsAppNumber(channel);
+      if (res.success) {
+        setStatus(res.data);
+        setQr(null);
+        setPairingCode(null);
+        triggerSuccess(t("dashboard.whatsapp.released"));
+      } else {
+        setError(res.message || t("dashboard.whatsapp.actionFailed"));
+      }
+    } catch (err) {
+      setError(err.message || t("dashboard.whatsapp.actionFailed"));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleLogout = () => {
     if (!window.confirm(t("dashboard.whatsapp.logoutConfirm"))) return;
     runAction(() => api.logoutWhatsAppSession(channel), "dashboard.whatsapp.loggedOut");
@@ -185,6 +209,10 @@ const WhatsAppDashboard = () => {
   const canStart = !engineLoaded;
   const isReady = s === "ready";
   const isQrReady = s === "qr_ready";
+  // The gateway refused a scan from a different number than the bound one.
+  const bindingRejected = /bound to|different whatsapp number|link rejected|re-pair/i.test(
+    String(status?.lastError || ""),
+  );
 
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn text-[#2e0854]">
@@ -306,6 +334,26 @@ const WhatsAppDashboard = () => {
           </div>
         )}
 
+        {!isReady && status?.phone && (
+          <p className="text-xs text-gray-500">
+            {t("dashboard.whatsapp.boundTo", { phone: status.phone })}
+          </p>
+        )}
+
+        {(bindingRejected || (!isReady && status?.phone)) && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-800">
+            <span className="flex-1">{t("dashboard.whatsapp.releaseHint")}</span>
+            <button
+              type="button"
+              onClick={handleReleaseNumber}
+              disabled={actionLoading}
+              className="shrink-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white rounded-xl font-semibold"
+            >
+              {t("dashboard.whatsapp.releaseNumber")}
+            </button>
+          </div>
+        )}
+
         {isQrReady && (
           <div className="space-y-4">
             <div className="flex flex-col items-center gap-3 p-4 bg-gray-50/70 rounded-2xl">
@@ -399,6 +447,16 @@ const WhatsAppDashboard = () => {
               className="flex items-center gap-1.5 px-4 py-2 border border-violet-200 text-brand-purple rounded-xl text-xs font-semibold disabled:opacity-50"
             >
               <HiOutlineLogout /> {t("dashboard.whatsapp.logout")}
+            </button>
+          )}
+          {isReady && (
+            <button
+              type="button"
+              onClick={handleReleaseNumber}
+              disabled={actionLoading}
+              className="flex items-center gap-1.5 px-4 py-2 border border-amber-200 text-amber-700 rounded-xl text-xs font-semibold disabled:opacity-50"
+            >
+              {t("dashboard.whatsapp.releaseNumber")}
             </button>
           )}
           {engineLoaded && (

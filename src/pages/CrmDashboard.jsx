@@ -22,7 +22,7 @@ import {
   HiOutlineUserGroup,
   HiOutlineTicket,
 } from "react-icons/hi";
-import { FaWhatsapp, FaFacebookMessenger } from "react-icons/fa";
+import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 
 // Polling intervals — assistants see new messages within a few seconds.
 const LIST_POLL_MS = 5000;
@@ -47,7 +47,15 @@ const CHANNEL_META = {
     chip: "bg-blue-50 text-blue-600",
     maxLength: 2000,
   },
+  instagram: {
+    icon: FaInstagram,
+    dot: "bg-pink-500",
+    chip: "bg-pink-50 text-pink-600",
+    maxLength: 1000,
+  },
 };
+// Messenger + Instagram: no phone numbers, Meta 24-hour reply window.
+const isMetaChannel = (channel) => channel === "facebook" || channel === "instagram";
 const channelMeta = (channel) => CHANNEL_META[channel] || CHANNEL_META.whatsapp;
 
 const ChannelDot = ({ channel }) => {
@@ -131,7 +139,7 @@ const displayName = (conv) => {
     userName ||
     conv.contact_name ||
     conv.contact_phone ||
-    (conv.channel === "facebook" ? null : conv.external_chat_id)
+    (isMetaChannel(conv.channel) ? null : conv.external_chat_id)
   );
 };
 
@@ -230,6 +238,9 @@ const CrmDashboard = () => {
   const [messenger, setMessenger] = useState(null);
   const [messengerError, setMessengerError] = useState("");
   const [messengerBusy, setMessengerBusy] = useState(false);
+  const [instagram, setInstagram] = useState(null);
+  const [instagramError, setInstagramError] = useState("");
+  const [instagramBusy, setInstagramBusy] = useState(false);
 
   useEffect(() => {
     if (linkedConversationId) {
@@ -490,12 +501,37 @@ const CrmDashboard = () => {
     }
   }, [t]);
 
+  const loadInstagram = useCallback(async () => {
+    setInstagramError("");
+    try {
+      const res = await api.getCrmInstagramSetup();
+      setInstagram(res.data || null);
+    } catch (err) {
+      setInstagramError(err.message || t("dashboard.crm.loadFailed"));
+    }
+  }, [t]);
+
+  const handleSyncInstagram = async () => {
+    setInstagramBusy(true);
+    setInstagramError("");
+    try {
+      const res = await api.syncCrmInstagram();
+      setInstagram(res.data || null);
+      fetchConversations({ silent: true });
+    } catch (err) {
+      setInstagramError(err.message || t("dashboard.crm.loadFailed"));
+    } finally {
+      setInstagramBusy(false);
+    }
+  };
+
   useEffect(() => {
     if (isAdmin && showSetup) {
       loadWebhook();
       loadMessenger();
+      loadInstagram();
     }
-  }, [isAdmin, showSetup, loadWebhook, loadMessenger]);
+  }, [isAdmin, showSetup, loadWebhook, loadMessenger, loadInstagram]);
 
   const handleConnectMessenger = async () => {
     setMessengerBusy(true);
@@ -549,7 +585,8 @@ const CrmDashboard = () => {
   };
 
   const headerName = conversation
-    ? displayName(conversation) || t("dashboard.crm.messengerUser")
+    ? displayName(conversation) ||
+      t(conversation.channel === "instagram" ? "dashboard.crm.instagramUser" : "dashboard.crm.messengerUser")
     : "";
 
   const openTicketModal = () => {
@@ -905,7 +942,9 @@ const CrmDashboard = () => {
           </div>
         ) : (
           conversations.map((conv) => {
-            const name = displayName(conv) || t("dashboard.crm.messengerUser");
+            const name =
+              displayName(conv) ||
+              t(conv.channel === "instagram" ? "dashboard.crm.instagramUser" : "dashboard.crm.messengerUser");
             const active = conv.id === selectedId;
             return (
               <button
@@ -1013,6 +1052,10 @@ const CrmDashboard = () => {
               {conversation?.channel === "facebook" ? (
                 <span className="text-blue-600 font-semibold">
                   {t("dashboard.crm.channelMessenger")}
+                </span>
+              ) : conversation?.channel === "instagram" ? (
+                <span className="text-pink-600 font-semibold">
+                  {t("dashboard.crm.channelInstagram")}
                 </span>
               ) : (
                 <span className="font-mono" dir="ltr">
@@ -1163,7 +1206,9 @@ const CrmDashboard = () => {
           <p className="mt-1.5 text-[10px] text-gray-400">
             {conversation?.channel === "facebook"
               ? t("dashboard.crm.composerHintMessenger")
-              : t("dashboard.crm.composerHint")}
+              : conversation?.channel === "instagram"
+                ? t("dashboard.crm.composerHintInstagram")
+                : t("dashboard.crm.composerHint")}
           </p>
         </form>
       </div>
@@ -1184,10 +1229,13 @@ const CrmDashboard = () => {
       if (!profile) return null;
 
       const contact = profile.contact || {};
-      const isMessenger = contact.channel === "facebook";
-      const nameLabel = isMessenger
-        ? t("dashboard.crm.messengerName")
-        : t("dashboard.crm.whatsappName");
+      const isMessenger = isMetaChannel(contact.channel);
+      const nameLabel =
+        contact.channel === "instagram"
+          ? t("dashboard.crm.instagramName")
+          : isMessenger
+            ? t("dashboard.crm.messengerName")
+            : t("dashboard.crm.whatsappName");
 
       if (!profile.linked) {
         return (
@@ -1533,6 +1581,7 @@ const CrmDashboard = () => {
               ["", "channelAll", HiOutlineChatAlt2],
               ["whatsapp", "channelWhatsapp", FaWhatsapp],
               ["facebook", "channelMessenger", FaFacebookMessenger],
+              ["instagram", "channelInstagram", FaInstagram],
             ].map(([value, key, Icon]) => {
               const unread = value
                 ? counts.unreadByChannel?.[value] || 0
@@ -1577,7 +1626,7 @@ const CrmDashboard = () => {
       </div>
 
       {isAdmin && showSetup && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
           {/* WhatsApp — CRM session (separate from the OTP number) */}
           <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm text-xs space-y-3">
             <h3 className="text-sm font-bold flex items-center gap-2">
@@ -1752,6 +1801,68 @@ const CrmDashboard = () => {
               {messengerBusy
                 ? t("dashboard.crm.registering")
                 : t("dashboard.crm.messengerConnect")}
+            </button>
+          </div>
+          {/* Instagram */}
+          <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm text-xs space-y-3">
+            <h3 className="text-sm font-bold flex items-center gap-2">
+              <FaInstagram className="text-pink-600" /> {t("dashboard.crm.instagramSetupTitle")}
+            </h3>
+            <p className="text-gray-500">{t("dashboard.crm.instagramSetupHint")}</p>
+            {instagram && (
+              <>
+                <div>
+                  <div className="text-gray-400">{t("dashboard.crm.instagramAccount")}</div>
+                  <div className="font-semibold">
+                    {instagram.username ? `@${instagram.username}` : instagram.name || "—"}
+                    {instagram.igAccountId && (
+                      <span className="ms-2 font-mono text-gray-400" dir="ltr">
+                        {instagram.igAccountId}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <SetupChip ok={instagram.tokenValid}>
+                    {instagram.tokenValid
+                      ? t("dashboard.crm.messengerTokenValid")
+                      : t("dashboard.crm.messengerTokenInvalid")}
+                  </SetupChip>
+                  <SetupChip ok={instagram.inboxReadable}>
+                    {instagram.inboxReadable
+                      ? t("dashboard.crm.instagramInboxOk")
+                      : t("dashboard.crm.instagramInboxBlocked")}
+                  </SetupChip>
+                  {instagram.lastSync && (
+                    <SetupChip ok={instagram.lastSync.ok} warn={!instagram.lastSync.error}>
+                      {instagram.lastSync.ok
+                        ? t("dashboard.crm.messengerLastSync", {
+                            time: formatDateTime(instagram.lastSync.at),
+                            count: instagram.lastSync.inserted ?? 0,
+                          })
+                        : t("dashboard.crm.messengerSyncFailed")}
+                    </SetupChip>
+                  )}
+                </div>
+                {instagram.error && <SetupNotice>{instagram.error}</SetupNotice>}
+                {(instagram.details || []).map((d) => (
+                  <SetupNotice key={d} warn>{d}</SetupNotice>
+                ))}
+                {instagram.lastSync?.error && <SetupNotice>{instagram.lastSync.error}</SetupNotice>}
+              </>
+            )}
+            {instagramError && (
+              <div className="p-2 bg-violet-50 border border-violet-200 text-brand rounded-lg font-semibold">
+                {instagramError}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={handleSyncInstagram}
+              disabled={instagramBusy}
+              className="rounded-xl bg-pink-600 hover:bg-pink-700 disabled:bg-pink-300 text-white font-semibold px-4 py-2"
+            >
+              {instagramBusy ? t("dashboard.crm.registering") : t("dashboard.crm.whatsappSyncNow")}
             </button>
           </div>
         </div>

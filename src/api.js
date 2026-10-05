@@ -1503,6 +1503,14 @@ export const api = {
     });
   },
 
+  getCrmInstagramSetup: async () => {
+    return await fetchClient("/crm/instagram/setup", { method: "GET" });
+  },
+
+  syncCrmInstagram: async () => {
+    return await fetchClient("/crm/instagram/setup", { method: "POST" });
+  },
+
   getCrmMessengerSetup: async () => {
     return await fetchClient("/crm/messenger/setup", { method: "GET" });
   },
@@ -1539,6 +1547,11 @@ export const api = {
 
   forceKillWhatsAppSession: async (channel = "otp") => {
     return await fetchClient(`/whatsapp/force-kill?channel=${channel}`, { method: "POST" });
+  },
+
+  // Unbinds the session from its linked number so ANY number can scan next.
+  releaseWhatsAppNumber: async (channel = "otp") => {
+    return await fetchClient(`/whatsapp/release-number?channel=${channel}`, { method: "POST" });
   },
 
   requestWhatsAppPairingCode: async (phoneNumber, channel = "otp") => {

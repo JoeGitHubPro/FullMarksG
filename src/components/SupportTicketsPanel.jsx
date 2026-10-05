@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
 import { Link } from "react-router-dom";
-import { FaWhatsapp, FaFacebookMessenger } from "react-icons/fa";
+import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 import api, { getFileUrl } from "../api";
 import {
   getSupportChannels,
@@ -24,7 +24,21 @@ import {
 } from "react-icons/hi";
 
 // Tickets opened from a CRM chat (WhatsApp / Messenger).
-const CRM_CHANNEL_ICON = { whatsapp: FaWhatsapp, facebook: FaFacebookMessenger };
+const CRM_CHANNEL_ICON = {
+  whatsapp: FaWhatsapp,
+  facebook: FaFacebookMessenger,
+  instagram: FaInstagram,
+};
+const CRM_CHANNEL_CHIP = {
+  whatsapp: "bg-green-50 text-green-700",
+  facebook: "bg-blue-50 text-blue-600",
+  instagram: "bg-pink-50 text-pink-600",
+};
+const CRM_CHANNEL_TEXT = {
+  whatsapp: "text-green-600",
+  facebook: "text-blue-600",
+  instagram: "text-pink-600",
+};
 const crmCustomerName = (ticket) =>
   [ticket.customer_first_name, ticket.customer_last_name].filter(Boolean).join(" ") ||
   ticket.crm_contact_name ||
@@ -474,9 +488,7 @@ const SupportTicketsPanel = ({
                           return (
                             <span
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${
-                                ticket.crm_channel === "facebook"
-                                  ? "bg-blue-50 text-blue-600"
-                                  : "bg-green-50 text-green-700"
+                                CRM_CHANNEL_CHIP[ticket.crm_channel] || CRM_CHANNEL_CHIP.whatsapp
                               }`}
                             >
                               <Icon /> CRM · {crmCustomerName(ticket)}
@@ -859,7 +871,7 @@ const SupportTicketsPanel = ({
                       </span>
                       <div className="flex items-center gap-2 text-[11px] text-gray-500 bg-gray-50 p-2 rounded-xl">
                         <Icon
-                          className={selectedTicket.crm_channel === "facebook" ? "text-blue-600" : "text-green-600"}
+                          className={CRM_CHANNEL_TEXT[selectedTicket.crm_channel] || CRM_CHANNEL_TEXT.whatsapp}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-[#2e0854] truncate">{crmCustomerName(selectedTicket)}</p>
@@ -970,7 +982,9 @@ const SupportTicketsPanel = ({
                   />
                   {selectedTicket.crm_channel === "facebook"
                     ? t("dashboard.support.crm.sendToCustomerMessenger")
-                    : t("dashboard.support.crm.sendToCustomerWhatsapp")}
+                    : selectedTicket.crm_channel === "instagram"
+                      ? t("dashboard.support.crm.sendToCustomerInstagram")
+                      : t("dashboard.support.crm.sendToCustomerWhatsapp")}
                   {!sendToCustomer && (
                     <span className="text-gray-400">· {t("dashboard.support.crm.internalOnly")}</span>
                   )}
