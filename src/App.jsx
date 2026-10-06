@@ -139,7 +139,11 @@ function App() {
         />
         <Route
           path="/courses/:slug/month-quiz/:quizId"
-          element={<MonthQuizTakePage />}
+          element={
+            <StudentOnlyRoute>
+              <MonthQuizTakePage />
+            </StudentOnlyRoute>
+          }
         />
         <Route
           path="/quizzes"

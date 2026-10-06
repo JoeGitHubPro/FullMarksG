@@ -41,7 +41,14 @@ import {
 import { HiOutlinePlayCircle } from "react-icons/hi2";
 
 const STATUS_FILTERS = ["all", "published", "draft", "archived"];
-const TERM_OPTIONS = ["Fall", "Spring", "Summer", "Winter"];
+const TERM_OPTIONS = [
+  "Fall",
+  "Spring",
+  "Summer",
+  "Winter",
+  "First Term",
+  "Second Term",
+];
 
 const STATUS_STYLES = {
   published: "text-emerald-700 bg-emerald-50",
@@ -158,6 +165,8 @@ const CoursesDashboard = () => {
       spring: "spring",
       summer: "summer",
       winter: "winter",
+      "first term": "firstTerm",
+      "second term": "secondTerm",
     };
     return termKeys[key]
       ? t(`dashboard.common.terms.${termKeys[key]}`)

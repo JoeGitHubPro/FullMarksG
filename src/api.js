@@ -1209,6 +1209,23 @@ export const api = {
     });
   },
 
+  // Manually assign/update a score for a question a student hasn't
+  // (necessarily) answered — backend creates the answer row if needed.
+  gradeCourseQuizQuestionForStudent: async (
+    questionId,
+    studentId,
+    score,
+    feedback,
+  ) => {
+    return await fetchClient(
+      `/course-quizzes/questions/${questionId}/students/${studentId}/grade`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ score, feedback }),
+      },
+    );
+  },
+
   // ==================================================================
   // --- INSTRUCTORS CATALOG (public) ---
   // ==================================================================
@@ -1507,6 +1524,28 @@ export const api = {
     return await fetchClient(`/crm/conversations/${conversationId}/profile`, {
       method: "GET",
     });
+  },
+
+  // Look up a contact's full account details by phone, independent of
+  // whether they have any CRM conversation/message history.
+  lookupCrmContactByPhone: async (phone) => {
+    const params = new URLSearchParams({ phone });
+    return await fetchClient(`/crm/contacts/lookup?${params.toString()}`, {
+      method: "GET",
+    });
+  },
+
+  // Extend a student's access-code expiry for one course. Pass EITHER
+  // { newExpiresAt } (a UTC ISO string, e.g. from localInputToUtcIso) OR
+  // { additionalDays } (a number of days to add) in `payload`.
+  extendCrmStudentCourseAccess: async (studentId, courseId, payload) => {
+    return await fetchClient(
+      `/crm/students/${studentId}/courses/${courseId}/access`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    );
   },
 
   getCrmWebhookStatus: async () => {

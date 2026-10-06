@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 import { Link, useSearchParams } from "react-router-dom";
@@ -316,6 +316,10 @@ const CrmDashboard = () => {
   const [profileLoading, setProfileLoading] = useState(false);
   const [showProfileMobile, setShowProfileMobile] = useState(false);
 
+  // ----- Phone lookup fallback (search finds no conversation at all) -----
+  // { status: "idle" | "loading" | "found" | "notfound", data }
+  const [contactLookup, setContactLookup] = useState({ status: "idle" });
+
   // ----- Support ticket from chat -----
   const emptyTicketForm = {
     subject: "",
@@ -447,6 +451,41 @@ const CrmDashboard = () => {
     };
   }, [fetchConversations]);
 
+  // Fallback for a phone search that finds no conversation at all: a number
+  // with zero chat history still has an account if it was ever registered,
+  // so look it up directly instead of showing "no results".
+  const conversationCount = conversations.length;
+  useEffect(() => {
+    const digits = debouncedSearch.replace(/[^\d]/g, "");
+    const looksLikePhone = digits.length >= 6;
+    if (listLoading || !looksLikePhone || conversationCount > 0) {
+      setContactLookup((current) => (current.status === "idle" ? current : { status: "idle" }));
+      return;
+    }
+    let cancelled = false;
+    setContactLookup({ status: "loading" });
+    api
+      .lookupCrmContactByPhone(debouncedSearch)
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.found) {
+          setContactLookup({ status: "found", data: res });
+        } else {
+          setContactLookup({ status: "notfound" });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setContactLookup({ status: "notfound" });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // Keyed on the result COUNT, not the `conversations` array reference —
+    // that array gets a new identity on every background poll (even a
+    // silent one that finds nothing new), which previously re-triggered
+    // this lookup and reset the third card every few seconds.
+  }, [debouncedSearch, conversationCount, listLoading]);
+
   const loadProfile = useCallback(async (conversationId) => {
     setProfileLoading(true);
     try {
@@ -514,7 +553,15 @@ const CrmDashboard = () => {
         // The agent switched chats while this request was in flight.
         if (selectedIdRef.current !== pollFor) return;
         if (!res.success) return;
-        if (res.conversation) setConversation(res.conversation);
+        // Skip the state update when nothing actually changed — this ticks
+        // every THREAD_POLL_MS and a no-op setState still triggers a render.
+        if (res.conversation) {
+          setConversation((current) =>
+            current && JSON.stringify(current) === JSON.stringify(res.conversation)
+              ? current
+              : res.conversation,
+          );
+        }
         if (res.data?.length) {
           setMessages((current) => {
             const known = new Set(current.map((m) => m.id));
@@ -1013,7 +1060,7 @@ const CrmDashboard = () => {
       )}
       <button
         type="button"
-        onClick={openTicketModal}
+        onClick={() => profileActionsRef.current.openTicketModal()}
         className="mt-2 text-[11px] font-semibold text-brand-purple hover:underline"
       >
         + {t("dashboard.crm.ticket.open")}
@@ -1184,6 +1231,10 @@ const CrmDashboard = () => {
 
   const renderThread = () => {
     if (!selectedId) {
+      // No conversation to show — including when a phone search matched a
+      // contact with no chat history: that result lives in the third
+      // (details) card, never injected in here, so this middle card always
+      // stays this one stable empty state regardless of search status.
       return (
         <div className="hidden lg:flex flex-col items-center justify-center bg-white border border-gray-100 rounded-3xl shadow-sm text-center p-10 text-gray-400">
           <HiOutlineChatAlt2 className="text-5xl text-gray-200 mb-3" />
@@ -1420,8 +1471,128 @@ const CrmDashboard = () => {
     );
   };
 
-  const renderProfile = () => {
-    if (!selectedId) return null;
+  // The third (details) card is wrapped in useMemo below so that polling —
+  // new messages every few seconds, a refreshed conversation list — never
+  // re-renders it. Handlers that close over state irrelevant to the card's
+  // own content (search filters, etc.) are called through this ref instead
+  // of being memo dependencies, so the memo's dependency list only has to
+  // include what the card actually displays, and never goes stale.
+  const profileActionsRef = useRef({});
+  profileActionsRef.current = {
+    handleLink,
+    handleUnlink,
+    openTicketModal,
+    setShowAccountModal,
+    setShowProfileMobile,
+    setRightTab,
+    setLinkPhone,
+    loadProfile,
+    markInternalSeen,
+  };
+
+  // A primitive, not the array itself — so a background poll that replaces
+  // `conversations` with an equal-but-new-reference array (the normal case,
+  // nothing changed) doesn't ripple into the memoized card below.
+  const selectedMentions = Number(
+    conversations.find((c) => c.id === selectedId)?.my_unread_mentions || 0,
+  );
+
+  // Third card's content for a phone search that matched a contact with no
+  // conversation at all — rendered only here, never in the middle (thread)
+  // card, so switching between contacts never reshuffles the chat column.
+  const renderPhoneLookupCard = () => {
+    if (contactLookup.status === "idle") return null;
+
+    return (
+      <div
+        className={`${showProfileMobile ? "flex" : "hidden xl:flex"} flex-col bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden min-h-0`}
+      >
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+          <span className="text-xs font-bold text-gray-500">{t("dashboard.crm.contactDetails")}</span>
+        </div>
+        <div className="flex-1 overflow-y-auto min-h-0 p-4">
+          {contactLookup.status === "loading" && (
+            <div className="h-40 flex items-center justify-center">
+              <div className="w-6 h-6 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+
+          {contactLookup.status === "notfound" && (
+            <div className="flex flex-col items-center justify-center text-center text-gray-400 py-10">
+              <HiOutlineExclamationCircle className="text-4xl text-gray-200 mb-2" />
+              <p className="text-sm font-semibold text-gray-500">{t("dashboard.crm.noCustomerFound")}</p>
+              <p className="text-xs mt-1 max-w-xs">{t("dashboard.crm.noCustomerFoundHint")}</p>
+            </div>
+          )}
+
+          {contactLookup.status === "found" &&
+            (() => {
+              const u = contactLookup.data.user;
+              const fullName = [u.first_name, u.last_name].filter(Boolean).join(" ");
+              return (
+                <div className="space-y-4">
+                  <div className="rounded-2xl bg-violet-50 border border-violet-100 p-3 text-[11px] font-semibold text-brand-purple">
+                    {t("dashboard.crm.foundByPhoneHint")}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {u.profile_image_url ? (
+                      <img src={getFileUrl(u.profile_image_url)} alt="" className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-violet-100 text-brand-purple flex items-center justify-center font-bold">
+                        {initials(fullName)}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm truncate">{fullName}</div>
+                      <div className="text-[11px] text-gray-400 font-mono" dir="ltr">{u.phone}</div>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                        <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-brand-purple">
+                          {t(`dashboard.crm.roles.${u.role}`)}
+                        </span>
+                        {!u.is_active && (
+                          <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-red-600">
+                            {t("dashboard.crm.inactive")}
+                          </span>
+                        )}
+                        {!!u.phone_verified_manually && (
+                          <span className="rounded bg-green-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-green-700">
+                            {t("dashboard.crm.phoneVerified")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {u.role === "student" && (
+                    <StudentDetails data={contactLookup.data} t={t} language={language} />
+                  )}
+                  {u.role === "parent" && (
+                    <ParentDetails data={contactLookup.data} user={u} t={t} language={language} />
+                  )}
+                  {u.role !== "student" && u.role !== "parent" && (
+                    <dl className="text-xs space-y-1.5">
+                      {[
+                        [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
+                        [t("dashboard.crm.email"), u.email || "—"],
+                        [t("dashboard.crm.joined"), formatDate(u.created_at)],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex justify-between gap-3">
+                          <dt className="text-gray-400 shrink-0">{label}</dt>
+                          <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              );
+            })()}
+        </div>
+      </div>
+    );
+  };
+
+  const profileCard = useMemo(() => {
+    if (!selectedId) return renderPhoneLookupCard();
 
     const body = () => {
       if (profileLoading && !profile) {
@@ -1469,12 +1640,15 @@ const CrmDashboard = () => {
             </dl>
             <button
               type="button"
-              onClick={() => setShowAccountModal(true)}
+              onClick={() => profileActionsRef.current.setShowAccountModal(true)}
               className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-2.5"
             >
               <HiOutlineUserAdd /> {t("dashboard.crm.account.open")}
             </button>
-            <form onSubmit={handleLink} className="space-y-2 border-t border-gray-100 pt-4">
+            <form
+              onSubmit={(e) => profileActionsRef.current.handleLink(e)}
+              className="space-y-2 border-t border-gray-100 pt-4"
+            >
               <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <HiOutlineLink /> {t("dashboard.crm.linkToAccount")}
               </label>
@@ -1485,7 +1659,7 @@ const CrmDashboard = () => {
                 <input
                   type="tel"
                   value={linkPhone}
-                  onChange={(e) => setLinkPhone(e.target.value)}
+                  onChange={(e) => profileActionsRef.current.setLinkPhone(e.target.value)}
                   placeholder="01xxxxxxxxx"
                   dir="ltr"
                   className="flex-1 min-w-0 bg-gray-50 text-xs rounded-xl px-3 py-2 border border-transparent focus:border-violet-200 focus:bg-white focus:outline-none"
@@ -1577,12 +1751,19 @@ const CrmDashboard = () => {
                 language={language}
                 contactName={contact.name}
                 nameLabel={nameLabel}
+                onAccessExtended={() => profileActionsRef.current.loadProfile(selectedId)}
               />
             </>
           )}
 
           {u.role === "parent" && (
-            <ParentDetails data={profile} user={u} t={t} language={language} />
+            <ParentDetails
+              data={profile}
+              user={u}
+              t={t}
+              language={language}
+              onAccessExtended={() => profileActionsRef.current.loadProfile(selectedId)}
+            />
           )}
 
           {renderTicketsSection()}
@@ -1590,7 +1771,7 @@ const CrmDashboard = () => {
           <div className="border-t border-gray-100 pt-3">
             <button
               type="button"
-              onClick={handleUnlink}
+              onClick={() => profileActionsRef.current.handleUnlink()}
               className="text-[11px] text-gray-400 hover:text-brand-purple underline"
             >
               {t("dashboard.crm.unlink")}
@@ -1607,7 +1788,7 @@ const CrmDashboard = () => {
         <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
           <button
             type="button"
-            onClick={() => setShowProfileMobile(false)}
+            onClick={() => profileActionsRef.current.setShowProfileMobile(false)}
             className="xl:hidden text-gray-500 hover:text-brand-purple"
             aria-label={t("dashboard.crm.back")}
           >
@@ -1618,16 +1799,13 @@ const CrmDashboard = () => {
               ["contact", t("dashboard.crm.contactDetails"), null],
               ["internal", t("dashboard.crm.internal.tab"), HiOutlineLockClosed],
             ].map(([key, label, Icon]) => {
-              const convMentions = Number(
-                conversations.find((c) => c.id === selectedId)?.my_unread_mentions || 0,
-              );
               return (
                 <button
                   key={key}
                   type="button"
                   role="tab"
                   aria-selected={rightTab === key}
-                  onClick={() => setRightTab(key)}
+                  onClick={() => profileActionsRef.current.setRightTab(key)}
                   className={`flex items-center gap-1 text-[11px] font-semibold rounded-lg px-2.5 py-1.5 ${
                     rightTab === key
                       ? key === "internal"
@@ -1638,8 +1816,8 @@ const CrmDashboard = () => {
                 >
                   {Icon && <Icon />}
                   {label}
-                  {key === "internal" && convMentions > 0 && (
-                    <span className="rounded-full bg-amber-500 text-white px-1 text-[9px]">{convMentions}</span>
+                  {key === "internal" && selectedMentions > 0 && (
+                    <span className="rounded-full bg-amber-500 text-white px-1 text-[9px]">{selectedMentions}</span>
                   )}
                 </button>
               );
@@ -1648,7 +1826,7 @@ const CrmDashboard = () => {
           {rightTab === "contact" && (
             <button
               type="button"
-              onClick={() => loadProfile(selectedId)}
+              onClick={() => profileActionsRef.current.loadProfile(selectedId)}
               className="ms-auto text-gray-400 hover:text-brand-purple"
               aria-label={t("dashboard.common.retry")}
             >
@@ -1663,7 +1841,7 @@ const CrmDashboard = () => {
               staff={staff}
               currentUserId={user?.id}
               t={t}
-              onActivity={markInternalSeen}
+              onActivity={() => profileActionsRef.current.markInternalSeen()}
             />
           </div>
         ) : (
@@ -1671,7 +1849,27 @@ const CrmDashboard = () => {
         )}
       </div>
     );
-  };
+    // Deliberately NOT depending on `conversations`/`conversation` (the
+    // list and the open thread) or any filter/search state — those change
+    // on every poll tick and have no bearing on this card's own content.
+    // Actions that need live versions of such state go through
+    // `profileActionsRef` instead (see its definition above).
+  }, [
+    selectedId,
+    profile,
+    profileLoading,
+    rightTab,
+    showProfileMobile,
+    linkPhone,
+    linkError,
+    linking,
+    language,
+    t,
+    staff,
+    user,
+    selectedMentions,
+    contactLookup,
+  ]);
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-4 animate-fadeIn text-[#2e0854]">
@@ -2045,7 +2243,7 @@ const CrmDashboard = () => {
       >
         {renderConversationList()}
         {renderThread()}
-        {renderProfile()}
+        {profileCard}
       </div>
       {renderTicketModal()}
       <CrmCreateAccountModal

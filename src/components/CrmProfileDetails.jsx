@@ -12,8 +12,11 @@ import {
   HiOutlineChevronDown,
   HiOutlinePlay,
   HiOutlineChartBar,
+  HiOutlineClock,
 } from "react-icons/hi";
 import { getGovernorateLabel } from "../utils/governorates";
+import { api } from "../api";
+import { localInputToUtcIso, toDatetimeLocalValue } from "../utils/assessmentDue";
 
 // Full student / parent details for the CRM contact panel (data comes from
 // GET /api/crm/conversations/:id/profile → utils/crmProfile.js).
@@ -111,8 +114,112 @@ const SummaryTiles = ({ summary, t }) => {
   );
 };
 
-const CourseCard = ({ e, t }) => {
+const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
+  const [mode, setMode] = useState("days"); // 'days' | 'date'
+  const [days, setDays] = useState("30");
+  const [newDate, setNewDate] = useState(
+    toDatetimeLocalValue(e.access_expires_at) || "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setError("");
+    const payload =
+      mode === "days"
+        ? { additionalDays: parseInt(days, 10) }
+        : { newExpiresAt: localInputToUtcIso(newDate) };
+    if (mode === "days" && (!payload.additionalDays || payload.additionalDays < 1)) {
+      setError(t("dashboard.crm.profile.invalidDays"));
+      return;
+    }
+    if (mode === "date" && !payload.newExpiresAt) {
+      setError(t("dashboard.crm.profile.invalidDate"));
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.extendCrmStudentCourseAccess(
+        studentId,
+        e.course_id,
+        payload,
+      );
+      if (res.success) {
+        onDone();
+      } else {
+        setError(res.message || t("dashboard.common.updateFailed"));
+      }
+    } catch (err) {
+      setError(err.message || t("dashboard.common.updateFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg bg-white border border-violet-100 p-2 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setMode("days")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "days" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {t("dashboard.crm.profile.addDays")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("date")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "date" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {t("dashboard.crm.profile.setNewDate")}
+        </button>
+      </div>
+      {mode === "days" ? (
+        <input
+          type="number"
+          min="1"
+          value={days}
+          onChange={(ev) => setDays(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+          placeholder={t("dashboard.crm.profile.additionalDays")}
+        />
+      ) : (
+        <input
+          type="datetime-local"
+          value={newDate}
+          onChange={(ev) => setNewDate(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+        />
+      )}
+      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-2 py-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          {t("dashboard.common.cancel")}
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-2.5 py-1 rounded-md bg-brand text-white text-[10px] font-bold hover:bg-brand-dark disabled:opacity-50"
+        >
+          {saving ? t("dashboard.common.saving") : t("dashboard.common.save")}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
   const [showGrades, setShowGrades] = useState(false);
+  const [showExtend, setShowExtend] = useState(false);
   const g = e.grades;
   const active = Number(e.is_active);
   return (
@@ -127,11 +234,35 @@ const CourseCard = ({ e, t }) => {
               : t("dashboard.crm.expired")}
         </Chip>
       </div>
-      <div className="text-[10px] text-gray-400">
-        {e.instructor_name && <>{e.instructor_name} · </>}
-        {t(`dashboard.crm.methods.${e.enrollment_method || "admin"}`)} · {fmtDate(e.enrolled_at)}
-        {e.access_expires_at && <> → {fmtDate(e.access_expires_at)}</>}
+      <div className="text-[10px] text-gray-400 flex items-center gap-2">
+        <span>
+          {e.instructor_name && <>{e.instructor_name} · </>}
+          {t(`dashboard.crm.methods.${e.enrollment_method || "admin"}`)} · {fmtDate(e.enrolled_at)}
+          {e.access_expires_at && <> → {fmtDate(e.access_expires_at)}</>}
+        </span>
+        {!showExtend && (
+          <button
+            type="button"
+            onClick={() => setShowExtend(true)}
+            className="ms-auto flex items-center gap-1 text-brand-purple font-bold shrink-0 hover:underline"
+          >
+            <HiOutlineClock />
+            {t("dashboard.crm.profile.extendAccess")}
+          </button>
+        )}
       </div>
+      {showExtend && (
+        <ExtendAccessForm
+          e={e}
+          studentId={studentId}
+          t={t}
+          onCancel={() => setShowExtend(false)}
+          onDone={() => {
+            setShowExtend(false);
+            onAccessExtended?.();
+          }}
+        />
+      )}
       {e.videos?.total > 0 && (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1 text-[10px] text-gray-500">
@@ -207,7 +338,7 @@ const CourseCard = ({ e, t }) => {
 };
 
 /** All details of one student. `compact` = shown inside a parent's child card. */
-export const StudentDetails = ({ data, t, language, compact = false, contactName, nameLabel }) => {
+export const StudentDetails = ({ data, t, language, compact = false, contactName, nameLabel, onAccessExtended }) => {
   const s = data?.student;
   if (!s) return <p className="text-xs text-gray-400">{t("dashboard.crm.noStudentRecord")}</p>;
   const verifiedBy = fullName(s, "verified_by_first_name", "verified_by_last_name");
@@ -302,7 +433,13 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
         {data.enrollments?.length ? (
           <ul className="space-y-2">
             {data.enrollments.map((e) => (
-              <CourseCard key={e.course_id} e={e} t={t} />
+              <CourseCard
+                key={e.course_id}
+                e={e}
+                t={t}
+                studentId={s.id}
+                onAccessExtended={onAccessExtended}
+              />
             ))}
           </ul>
         ) : (
@@ -413,7 +550,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
   );
 };
 
-const ChildCard = ({ child, t, language, defaultOpen }) => {
+const ChildCard = ({ child, t, language, defaultOpen, onAccessExtended }) => {
   const [open, setOpen] = useState(defaultOpen);
   const s = child.student;
   return (
@@ -440,7 +577,13 @@ const ChildCard = ({ child, t, language, defaultOpen }) => {
       </button>
       {open && (
         <div className="px-3 pb-3">
-          <StudentDetails data={child} t={t} language={language} compact />
+          <StudentDetails
+            data={child}
+            t={t}
+            language={language}
+            compact
+            onAccessExtended={onAccessExtended}
+          />
         </div>
       )}
     </li>
@@ -448,7 +591,7 @@ const ChildCard = ({ child, t, language, defaultOpen }) => {
 };
 
 /** A parent/guardian with every child and the child's full details. */
-export const ParentDetails = ({ data, user, t, language }) => (
+export const ParentDetails = ({ data, user, t, language, onAccessExtended }) => (
   <div className="space-y-3">
     <CrmSection icon={HiOutlineIdentification} title={t("dashboard.crm.personalInfo")}>
       <InfoList
@@ -471,6 +614,7 @@ export const ParentDetails = ({ data, user, t, language }) => (
               t={t}
               language={language}
               defaultOpen={i === 0}
+              onAccessExtended={onAccessExtended}
             />
           ))}
         </ul>

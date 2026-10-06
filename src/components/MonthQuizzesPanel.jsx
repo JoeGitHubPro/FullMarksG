@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
 import { api, getFileUrl } from "../api";
+import { localInputToUtcIso, toDatetimeLocalValue } from "../utils/assessmentDue";
 import {
   HiOutlineCalendar,
   HiOutlineClock,
@@ -106,12 +107,12 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
     setQuizForm({
       title: quiz.title || "",
       description: quiz.description || "",
-      availableFrom: quiz.available_from
-        ? String(quiz.available_from).replace(" ", "T").slice(0, 16)
-        : "",
-      dueDate: quiz.due_date
-        ? String(quiz.due_date).replace(" ", "T").slice(0, 16)
-        : "",
+      // quiz.available_from / due_date are UTC instants from the backend;
+      // render them in the viewer's own local time (GMT+3 for Cairo) so the
+      // datetime-local input shows the wall-clock time that was actually
+      // meant, not a naive slice of the UTC digits.
+      availableFrom: toDatetimeLocalValue(quiz.available_from),
+      dueDate: toDatetimeLocalValue(quiz.due_date),
       timeLimitMinutes: quiz.time_limit_minutes || "",
       attemptWindowMinutes: quiz.attempt_window_minutes || "",
       maxScore: quiz.max_score || 100,
@@ -137,8 +138,13 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
       const payload = {
         title: quizForm.title.trim(),
         description: quizForm.description || null,
-        availableFrom: quizForm.availableFrom || null,
-        dueDate: quizForm.dueDate || null,
+        // Convert the datetime-local value (the viewer's own local
+        // wall-clock time, e.g. GMT+3 in Cairo) to a true UTC instant
+        // before sending it to the backend. Sending the raw local string
+        // made the quiz open/close 3 hours later than entered, since the
+        // backend's own clock (and Date.now()) runs in UTC.
+        availableFrom: localInputToUtcIso(quizForm.availableFrom),
+        dueDate: localInputToUtcIso(quizForm.dueDate),
         timeLimitMinutes: quizForm.timeLimitMinutes || null,
         attemptWindowMinutes: quizForm.attemptWindowMinutes || null,
         maxScore: quizForm.maxScore || 100,
@@ -315,11 +321,21 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
   const handleGradeAnswer = async (answer) => {
     if (gradeScore === "") return;
     try {
-      const res = await api.gradeCourseQuizAnswer(
-        answer.id,
-        parseFloat(gradeScore),
-        gradeFeedback,
-      );
+      // Unanswered questions have no month_quiz_answers row yet (synthetic
+      // placeholder id) — grade them by question+student instead, which
+      // creates the row; a real submitted answer is graded by its own id.
+      const res = answer.isUnanswered
+        ? await api.gradeCourseQuizQuestionForStudent(
+            answer.question_id,
+            answer.student_id,
+            parseFloat(gradeScore),
+            gradeFeedback,
+          )
+        : await api.gradeCourseQuizAnswer(
+            answer.id,
+            parseFloat(gradeScore),
+            gradeFeedback,
+          );
       if (res.success) {
         setGradingAnswerId(null);
         setGradeScore("");
@@ -377,6 +393,47 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
           answers: [],
         };
       }
+    });
+
+    // Fill in a placeholder "unanswered" entry for any question a listed
+    // student has no saved answer for (skipped it, or never answered
+    // anything at all) — otherwise that question never appears here and a
+    // grader has no way to manually assign it a score. Placeholders use a
+    // synthetic string id (no month_quiz_answers row exists yet); grading
+    // one creates it via gradeCourseQuizQuestionForStudent instead of the
+    // by-answer-id endpoint used for real answers.
+    Object.values(answersByStudent).forEach((entry) => {
+      const answeredQuestionIds = new Set(
+        entry.answers.map((a) => a.question_id),
+      );
+      questions.forEach((q) => {
+        if (!answeredQuestionIds.has(q.id)) {
+          entry.answers.push({
+            id: `unanswered-${entry.student.id}-${q.id}`,
+            isUnanswered: true,
+            student_id: entry.student.id,
+            question_id: q.id,
+            question_text: q.question_text,
+            question_type: q.question_type,
+            max_score: q.max_score,
+            answer_text: null,
+            selected_option_id: null,
+            selected_option_text: null,
+            file_path: null,
+            score: null,
+            feedback: null,
+          });
+        }
+      });
+      // Keep questions in the quiz's own order.
+      const sortOrderByQuestionId = new Map(
+        questions.map((q) => [q.id, q.sort_order ?? 0]),
+      );
+      entry.answers.sort(
+        (a, b) =>
+          (sortOrderByQuestionId.get(a.question_id) ?? 0) -
+          (sortOrderByQuestionId.get(b.question_id) ?? 0),
+      );
     });
 
     return (
@@ -697,7 +754,11 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
                       <p className="text-xs font-semibold text-gray-600">
                         {ans.question_text}
                       </p>
-                      {ans.question_type === "mcq" ? (
+                      {ans.isUnanswered ? (
+                        <p className="text-xs text-gray-400 italic">
+                          {t("dashboard.monthQuizzes.noAnswerSubmitted")}
+                        </p>
+                      ) : ans.question_type === "mcq" ? (
                         <p className="text-xs text-gray-500">
                           {ans.selected_option_text}
                         </p>
@@ -729,7 +790,11 @@ const MonthQuizzesPanel = ({ currentUserRole }) => {
                             {t("dashboard.monthQuizzes.pendingGrade")}
                           </span>
                         )}
-                        {ans.question_type !== "mcq" &&
+                        {/* Admins, instructors and assistants can all edit
+                            any answer's score here — including MCQ answers,
+                            which are auto-graded on submission but may still
+                            need a manual override/correction. */}
+                        {canManage &&
                           (gradingAnswerId === ans.id ? (
                             <div className="flex items-center gap-1.5">
                               <input
