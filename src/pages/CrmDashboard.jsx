@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "../i18n/LanguageContext";
 import { useAuth } from "../context/AuthContext";
 import { Link, useSearchParams } from "react-router-dom";
-import api, { getFileUrl } from "../api";
+import api, { getFileUrl, fetchCrmMediaBlob } from "../api";
 import {
   HiOutlineChatAlt2,
   HiOutlineSearch,
@@ -15,13 +15,14 @@ import {
   HiOutlineLink,
   HiOutlineCog,
   HiOutlineIdentification,
-  HiOutlineAcademicCap,
-  HiOutlineKey,
-  HiOutlineCreditCard,
-  HiOutlineAnnotation,
-  HiOutlineUserGroup,
   HiOutlineTicket,
+  HiOutlineUserAdd,
+  HiOutlineAtSymbol,
+  HiOutlineLockClosed,
 } from "react-icons/hi";
+import CrmInternalChat from "../components/CrmInternalChat";
+import CrmCreateAccountModal from "../components/CrmCreateAccountModal";
+import { StudentDetails, ParentDetails } from "../components/CrmProfileDetails";
 import { FaWhatsapp, FaFacebookMessenger, FaInstagram } from "react-icons/fa";
 
 // Polling intervals — assistants see new messages within a few seconds.
@@ -96,6 +97,114 @@ const SetupNotice = ({ warn = false, children }) => (
   </div>
 );
 
+// ---------- Message media ----------
+// WhatsApp: bytes come from our backend (proxied from the gateway).
+// Messenger / Instagram: the message text is "[type] https://cdn…".
+const WA_MEDIA_TYPES = ["image", "sticker", "video", "audio", "ptt", "voice", "document"];
+const META_MEDIA_RE = /^\[([a-z_]+)\]\s+(https?:\/\/\S+)\s*$/i;
+const PLACEHOLDER_RE = /^\[[a-z_]+\]$/i;
+const mediaUrlCache = new Map(); // crm message id -> object URL (kept for the session)
+
+const MediaView = ({ kind, src, mime, outgoing, t }) => {
+  const k = String(kind || "").toLowerCase();
+  const isImage = ["image", "sticker"].includes(k) || String(mime || "").startsWith("image/");
+  const isVideo = k === "video" || String(mime || "").startsWith("video/");
+  const isAudio = ["audio", "ptt", "voice"].includes(k) || String(mime || "").startsWith("audio/");
+  if (isImage) {
+    return (
+      <a href={src} target="_blank" rel="noopener noreferrer" className="block">
+        <img
+          src={src}
+          alt=""
+          className={`rounded-xl max-h-72 w-auto object-contain ${k === "sticker" ? "max-w-[140px] bg-transparent" : "bg-black/5"}`}
+        />
+      </a>
+    );
+  }
+  if (isVideo) return <video src={src} controls className="rounded-xl max-h-72 w-full bg-black" />;
+  if (isAudio) return <audio src={src} controls className="w-60 max-w-full" />;
+  return (
+    <a
+      href={src}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`inline-flex items-center gap-1 underline font-semibold ${outgoing ? "text-white" : "text-brand-purple"}`}
+    >
+      📎 {t("dashboard.crm.media.openFile")}
+    </a>
+  );
+};
+
+const WhatsAppMedia = ({ messageId, kind, outgoing, t }) => {
+  const [state, setState] = useState(() =>
+    mediaUrlCache.has(messageId)
+      ? { status: "ready", ...mediaUrlCache.get(messageId) }
+      : { status: "loading" },
+  );
+  useEffect(() => {
+    if (mediaUrlCache.has(messageId)) return undefined;
+    let cancelled = false;
+    fetchCrmMediaBlob(messageId)
+      .then((blob) => {
+        const entry = { src: URL.createObjectURL(blob), mime: blob.type };
+        mediaUrlCache.set(messageId, entry);
+        if (!cancelled) setState({ status: "ready", ...entry });
+      })
+      .catch(() => {
+        if (!cancelled) setState({ status: "error" });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [messageId]);
+
+  if (state.status === "loading") {
+    return (
+      <div className="w-48 h-32 rounded-xl bg-black/5 flex items-center justify-center">
+        <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin opacity-50" />
+      </div>
+    );
+  }
+  if (state.status === "error") {
+    return (
+      <span className="italic opacity-70">
+        [{kind}] {t("dashboard.crm.media.unavailable")}
+      </span>
+    );
+  }
+  return <MediaView kind={kind} src={state.src} mime={state.mime} outgoing={outgoing} t={t} />;
+};
+
+const MessageBody = ({ message, channel, outgoing, t }) => {
+  const body = String(message.body || "");
+  const type = String(message.message_type || "").toLowerCase();
+
+  if (channel === "whatsapp" && WA_MEDIA_TYPES.includes(type) && message.external_message_id) {
+    const caption = PLACEHOLDER_RE.test(body.trim()) ? "" : body;
+    return (
+      <div className="space-y-1.5">
+        <WhatsAppMedia messageId={message.id} kind={type} outgoing={outgoing} t={t} />
+        {caption && (
+          <div className="whitespace-pre-wrap break-words" dir="auto">
+            {caption}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const meta = META_MEDIA_RE.exec(body.trim());
+  if (meta) {
+    return <MediaView kind={meta[1]} src={meta[2]} outgoing={outgoing} t={t} />;
+  }
+
+  return (
+    <div className="whitespace-pre-wrap break-words" dir="auto">
+      {body}
+    </div>
+  );
+};
+
 const formatTime = (value) => {
   if (!value) return "";
   const date = new Date(value);
@@ -169,13 +278,14 @@ const Section = ({ icon: Icon, title, count, children }) => (
 );
 
 const CrmDashboard = () => {
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
 
   // ----- Conversation list -----
   const [conversations, setConversations] = useState([]);
   const [counts, setCounts] = useState({ open: 0, unread: 0 });
+  const mentionsUnread = Number(counts?.mentionsUnread || 0);
   const [channelFilter, setChannelFilter] = useState("");
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState("");
@@ -218,10 +328,52 @@ const CrmDashboard = () => {
     notifyCustomer: true,
   };
   const [showTicketModal, setShowTicketModal] = useState(false);
+
+  // ----- Team: assignees, internal chat, mentions, create account -----
+  const [staff, setStaff] = useState([]);
+  const [rightTab, setRightTab] = useState("contact"); // "contact" | "internal"
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionItems, setMentionItems] = useState([]);
+  const [showAccountModal, setShowAccountModal] = useState(false);
   const [ticketForm, setTicketForm] = useState(emptyTicketForm);
   const [ticketBusy, setTicketBusy] = useState(false);
   const [ticketError, setTicketError] = useState("");
   const [ticketNotice, setTicketNotice] = useState(null);
+
+  useEffect(() => {
+    api
+      .getCrmStaff()
+      .then((res) => setStaff(res.data || []))
+      .catch(() => setStaff([]));
+  }, []);
+
+  const loadMentions = useCallback(async () => {
+    try {
+      const res = await api.getCrmMentions();
+      setMentionItems(res.data || []);
+    } catch {
+      setMentionItems([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showMentions) loadMentions();
+  }, [showMentions, loadMentions]);
+
+  // Opening a conversation's internal tab marks my mentions there as read.
+  const markInternalSeen = useCallback(() => {
+    setConversations((cur) =>
+      cur.map((c) => (c.id === selectedIdRef.current ? { ...c, my_unread_mentions: 0 } : c)),
+    );
+  }, []);
+
+  const openMention = (m) => {
+    setShowMentions(false);
+    setStatusFilter("all");
+    setSelectedId(m.conversation_id);
+    setRightTab("internal");
+    setShowProfileMobile(true);
+  };
 
   // Deep link: /dashboard/crm?conversation=<id> (e.g. from a Support ticket).
   const [searchParams] = useSearchParams();
@@ -909,6 +1061,7 @@ const CrmDashboard = () => {
             ["unread", "filterUnread"],
             ["mine", "filterMine"],
             ["unassigned", "filterUnassigned"],
+            ["mentions", "filterMentions"],
           ].map(([value, key]) => (
             <button
               key={key}
@@ -921,6 +1074,9 @@ const CrmDashboard = () => {
               }`}
             >
               {t(`dashboard.crm.${key}`)}
+              {value === "mentions" && mentionsUnread > 0 && (
+                <span className="ms-1 rounded-full bg-amber-500 text-white px-1">{mentionsUnread}</span>
+              )}
             </button>
           ))}
         </div>
@@ -1004,6 +1160,18 @@ const CrmDashboard = () => {
                         → {conv.assignee_first_name}
                       </span>
                     )}
+                    {Number(conv.my_unread_mentions) > 0 ? (
+                      <span className="ms-auto shrink-0 inline-flex items-center gap-0.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-800">
+                        <HiOutlineAtSymbol /> {conv.my_unread_mentions}
+                      </span>
+                    ) : Number(conv.internal_count) > 0 ? (
+                      <span
+                        className="ms-auto shrink-0 inline-flex items-center gap-0.5 text-[9px] text-gray-400"
+                        title={t("dashboard.crm.internal.tab")}
+                      >
+                        <HiOutlineLockClosed /> {conv.internal_count}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </button>
@@ -1026,7 +1194,6 @@ const CrmDashboard = () => {
     }
 
     const isClosed = conversation?.status === "closed";
-    const assignedToMe = conversation?.assigned_to === user?.id;
 
     return (
       <div
@@ -1065,12 +1232,47 @@ const CrmDashboard = () => {
             </div>
           </div>
           <div className="ms-auto flex items-center gap-2">
+            <select
+              value={conversation?.assigned_to ? String(conversation.assigned_to) : ""}
+              onChange={(e) =>
+                updateConversation({ assignedTo: e.target.value ? Number(e.target.value) : null })
+              }
+              aria-label={t("dashboard.crm.assign.label")}
+              title={t("dashboard.crm.assign.label")}
+              className={`max-w-[150px] text-[11px] font-semibold rounded-lg border px-2 py-1.5 bg-white ${
+                conversation?.assigned_to
+                  ? "border-violet-200 text-brand-purple"
+                  : "border-gray-200 text-gray-600"
+              }`}
+            >
+              <option value="">{t("dashboard.crm.assign.unassigned")}</option>
+              {user?.id && !staff.some((s) => s.id === user.id) && (
+                <option value={user.id}>{t("dashboard.crm.assign.me")}</option>
+              )}
+              {staff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id === user?.id ? `${t("dashboard.crm.assign.me")} (${s.name})` : s.name} ·{" "}
+                  {t(`dashboard.crm.roles.${s.role}`)}
+                </option>
+              ))}
+              {conversation?.assigned_to &&
+                !staff.some((s) => s.id === conversation.assigned_to) &&
+                conversation.assigned_to !== user?.id && (
+                  <option value={conversation.assigned_to}>
+                    {[conversation.assignee_first_name, conversation.assignee_last_name].filter(Boolean).join(" ")}
+                  </option>
+                )}
+            </select>
             <button
               type="button"
-              onClick={() => updateConversation({ assignedTo: assignedToMe ? null : "me" })}
-              className="hidden sm:inline-flex text-[11px] font-semibold rounded-lg border border-gray-200 px-2.5 py-1.5 text-gray-600 hover:bg-gray-50"
+              onClick={() => {
+                setRightTab("internal");
+                setShowProfileMobile(true);
+              }}
+              className="xl:hidden text-amber-600 hover:text-amber-700 p-1.5"
+              aria-label={t("dashboard.crm.internal.tab")}
             >
-              {assignedToMe ? t("dashboard.crm.unassign") : t("dashboard.crm.assignToMe")}
+              <HiOutlineLockClosed />
             </button>
             <button
               type="button"
@@ -1153,9 +1355,12 @@ const CrmDashboard = () => {
                         : "bg-white border border-gray-100 text-gray-800 rounded-es-md"
                     }`}
                   >
-                    <div className="whitespace-pre-wrap break-words" dir="auto">
-                      {m.body}
-                    </div>
+                    <MessageBody
+                      message={m}
+                      channel={conversation?.channel}
+                      outgoing={outgoing}
+                      t={t}
+                    />
                     <div
                       className={`mt-1 flex items-center gap-1.5 text-[10px] ${
                         outgoing && !failed ? "text-white/70" : "text-gray-400"
@@ -1262,6 +1467,13 @@ const CrmDashboard = () => {
                 <dd className="text-end">{formatDateTime(contact.firstContactAt)}</dd>
               </div>
             </dl>
+            <button
+              type="button"
+              onClick={() => setShowAccountModal(true)}
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-2.5"
+            >
+              <HiOutlineUserAdd /> {t("dashboard.crm.account.open")}
+            </button>
             <form onSubmit={handleLink} className="space-y-2 border-t border-gray-100 pt-4">
               <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
                 <HiOutlineLink /> {t("dashboard.crm.linkToAccount")}
@@ -1327,196 +1539,50 @@ const CrmDashboard = () => {
             </div>
           </div>
 
-          <Section icon={HiOutlineIdentification} title={t("dashboard.crm.personalInfo")}>
-            <dl className="text-xs space-y-1.5">
-              {[
-                [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
-                [t("dashboard.crm.email"), u.email || "—"],
-                [nameLabel, contact.name || "—"],
-                student && [t("dashboard.crm.level"), student.academic_level_name || "—"],
-                student && [t(`dashboard.crm.studentType`), t(`dashboard.crm.studentTypes.${student.student_type}`)],
-                student && [t("dashboard.crm.governorate"), student.governorate || "—"],
-                student && [
-                  t("dashboard.crm.parent"),
-                  student.parent_user_id ? (
-                    <span>
-                      {[student.parent_first_name, student.parent_last_name].filter(Boolean).join(" ")}
-                      <span className="block font-mono text-gray-400" dir="ltr">
-                        {student.parent_phone}
-                      </span>
-                    </span>
-                  ) : (
-                    "—"
-                  ),
-                ],
-                [t("dashboard.crm.joined"), formatDate(u.created_at)],
-                [t("dashboard.crm.conversations"), profile.conversationCount],
-              ]
-                .filter(Boolean)
-                .map(([label, value]) => (
+          {u.role !== "student" && u.role !== "parent" && (
+            <Section icon={HiOutlineIdentification} title={t("dashboard.crm.personalInfo")}>
+              <dl className="text-xs space-y-1.5">
+                {[
+                  [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
+                  [t("dashboard.crm.email"), u.email || "—"],
+                  [t("dashboard.crm.joined"), formatDate(u.created_at)],
+                ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-3">
                     <dt className="text-gray-400 shrink-0">{label}</dt>
                     <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
                   </div>
                 ))}
-            </dl>
-          </Section>
-
-          {u.role === "student" && !student && (
-            <p className="text-xs text-gray-400">{t("dashboard.crm.noStudentRecord")}</p>
+              </dl>
+            </Section>
           )}
 
-          {student && (
+          {u.role === "student" && (
             <>
-              <Section
-                icon={HiOutlineAcademicCap}
-                title={t("dashboard.crm.enrollments")}
-                count={profile.enrollments?.length || 0}
-              >
-                {profile.enrollments?.length ? (
-                  <ul className="space-y-2">
-                    {profile.enrollments.map((e) => (
-                      <li key={e.course_id} className="rounded-xl bg-gray-50 px-3 py-2">
-                        <div className="flex items-start gap-2">
-                          <span className="text-xs font-semibold flex-1">{e.course_title}</span>
-                          <span
-                            className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
-                              Number(e.is_active)
-                                ? "bg-green-50 text-green-700"
-                                : "bg-gray-200 text-gray-500"
-                            }`}
-                          >
-                            {Number(e.is_active)
-                              ? t("dashboard.crm.active")
-                              : e.status && e.status !== "active"
-                                ? t("dashboard.crm.inactive")
-                                : t("dashboard.crm.expired")}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-gray-400 mt-0.5">
-                          {t(`dashboard.crm.methods.${e.enrollment_method || "admin"}`)} ·{" "}
-                          {formatDate(e.enrolled_at)}
-                          {e.access_expires_at && (
-                            <> → {formatDate(e.access_expires_at)}</>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
-                )}
-              </Section>
-
-              <Section
-                icon={HiOutlineKey}
-                title={t("dashboard.crm.codesUsed")}
-                count={profile.codes?.length || 0}
-              >
-                {profile.codes?.length ? (
-                  <ul className="space-y-1.5">
-                    {profile.codes.map((c) => (
-                      <li key={c.id} className="text-xs flex items-start gap-2">
-                        <span className="font-mono font-bold text-brand-purple" dir="ltr">
-                          {c.code}
-                        </span>
-                        <span className="text-gray-400 text-[10px] flex-1 text-end">
-                          {c.course_title || c.code_type}
-                          <span className="block">{formatDate(c.redeemed_at)}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
-                )}
-              </Section>
-
-              <Section
-                icon={HiOutlineCreditCard}
-                title={t("dashboard.crm.payments")}
-                count={profile.payments?.length || 0}
-              >
-                {profile.payments?.length ? (
-                  <ul className="space-y-1.5">
-                    {profile.payments.map((p) => (
-                      <li key={p.id} className="text-xs flex items-start gap-2">
-                        <span className="flex-1 min-w-0">
-                          <span className="font-medium block truncate">{p.item_title || `#${p.item_id}`}</span>
-                          <span className="text-[10px] text-gray-400">{formatDate(p.created_at)}</span>
-                        </span>
-                        <span className="text-end shrink-0">
-                          <span className="font-semibold block">
-                            {Number(p.amount).toFixed(2)} {p.currency}
-                          </span>
-                          <span
-                            className={`text-[9px] font-bold uppercase ${
-                              p.status === "paid"
-                                ? "text-green-600"
-                                : p.status === "pending"
-                                  ? "text-amber-600"
-                                  : "text-gray-400"
-                            }`}
-                          >
-                            {t(`dashboard.crm.paymentStatus.${p.status}`)}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
-                )}
-              </Section>
-
-              <Section
-                icon={HiOutlineAnnotation}
-                title={t("dashboard.crm.staffNotes")}
-                count={profile.notes?.length || 0}
-              >
-                {profile.notes?.length ? (
-                  <ul className="space-y-2">
-                    {profile.notes.map((n) => (
-                      <li key={n.id} className="rounded-xl bg-amber-50/60 px-3 py-2 text-xs">
-                        <div className="whitespace-pre-wrap" dir="auto">{n.note}</div>
-                        <div className="text-[10px] text-gray-400 mt-1">
-                          {[n.author_first_name, n.author_last_name].filter(Boolean).join(" ")} ·{" "}
-                          {formatDate(n.created_at)}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
-                )}
-              </Section>
+              <dl className="text-xs space-y-1.5">
+                {[
+                  [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
+                  [t("dashboard.crm.email"), u.email || "—"],
+                  [t("dashboard.crm.joined"), formatDate(u.created_at)],
+                  [t("dashboard.crm.conversations"), profile.conversationCount],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-3">
+                    <dt className="text-gray-400 shrink-0">{label}</dt>
+                    <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <StudentDetails
+                data={profile}
+                t={t}
+                language={language}
+                contactName={contact.name}
+                nameLabel={nameLabel}
+              />
             </>
           )}
 
           {u.role === "parent" && (
-            <Section
-              icon={HiOutlineUserGroup}
-              title={t("dashboard.crm.children")}
-              count={profile.children?.length || 0}
-            >
-              {profile.children?.length ? (
-                <ul className="space-y-1.5">
-                  {profile.children.map((c) => (
-                    <li key={c.student_id} className="text-xs">
-                      <span className="font-semibold">
-                        {[c.first_name, c.last_name].filter(Boolean).join(" ")}
-                      </span>
-                      <span className="block text-[10px] text-gray-400">
-                        <span dir="ltr" className="font-mono">{c.phone}</span>
-                        {c.academic_level_name && ` · ${c.academic_level_name}`}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
-              )}
-            </Section>
+            <ParentDetails data={profile} user={u} t={t} language={language} />
           )}
 
           {renderTicketsSection()}
@@ -1547,17 +1613,62 @@ const CrmDashboard = () => {
           >
             <HiOutlineArrowLeft className="rtl:rotate-180" />
           </button>
-          <h3 className="text-sm font-bold">{t("dashboard.crm.contactDetails")}</h3>
-          <button
-            type="button"
-            onClick={() => loadProfile(selectedId)}
-            className="ms-auto text-gray-400 hover:text-brand-purple"
-            aria-label={t("dashboard.common.retry")}
-          >
-            <HiOutlineRefresh className={profileLoading ? "animate-spin" : ""} />
-          </button>
+          <div className="flex gap-1 bg-gray-50 rounded-xl p-1" role="tablist">
+            {[
+              ["contact", t("dashboard.crm.contactDetails"), null],
+              ["internal", t("dashboard.crm.internal.tab"), HiOutlineLockClosed],
+            ].map(([key, label, Icon]) => {
+              const convMentions = Number(
+                conversations.find((c) => c.id === selectedId)?.my_unread_mentions || 0,
+              );
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={rightTab === key}
+                  onClick={() => setRightTab(key)}
+                  className={`flex items-center gap-1 text-[11px] font-semibold rounded-lg px-2.5 py-1.5 ${
+                    rightTab === key
+                      ? key === "internal"
+                        ? "bg-amber-100 text-amber-800 shadow-sm"
+                        : "bg-white text-brand-purple shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {Icon && <Icon />}
+                  {label}
+                  {key === "internal" && convMentions > 0 && (
+                    <span className="rounded-full bg-amber-500 text-white px-1 text-[9px]">{convMentions}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {rightTab === "contact" && (
+            <button
+              type="button"
+              onClick={() => loadProfile(selectedId)}
+              className="ms-auto text-gray-400 hover:text-brand-purple"
+              aria-label={t("dashboard.common.retry")}
+            >
+              <HiOutlineRefresh className={profileLoading ? "animate-spin" : ""} />
+            </button>
+          )}
         </div>
-        <div className="flex-1 overflow-y-auto min-h-0 p-4">{body()}</div>
+        {rightTab === "internal" ? (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <CrmInternalChat
+              conversationId={selectedId}
+              staff={staff}
+              currentUserId={user?.id}
+              t={t}
+              onActivity={markInternalSeen}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-y-auto min-h-0 p-4">{body()}</div>
+        )}
       </div>
     );
   };
@@ -1614,15 +1725,75 @@ const CrmDashboard = () => {
             })}
           </div>
         </div>
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={() => setShowSetup((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-purple"
-          >
-            <HiOutlineCog /> {t("dashboard.crm.setup")}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMentions((v) => !v)}
+              className={`flex items-center gap-1.5 text-xs font-semibold rounded-xl px-3 py-1.5 border ${
+                mentionsUnread > 0
+                  ? "border-amber-300 bg-amber-50 text-amber-800"
+                  : "border-gray-200 text-gray-500 hover:text-brand-purple"
+              }`}
+            >
+              <HiOutlineAtSymbol /> {t("dashboard.crm.internal.mentions")}
+              {mentionsUnread > 0 && (
+                <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {mentionsUnread}
+                </span>
+              )}
+            </button>
+            {showMentions && (
+              <div className="absolute end-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-white border border-gray-100 rounded-2xl shadow-xl z-30 p-2">
+                <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                  {t("dashboard.crm.internal.mentionsTitle")}
+                </div>
+                {mentionItems.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-xs text-gray-400">{t("dashboard.crm.internal.noMentions")}</p>
+                ) : (
+                  <ul>
+                    {mentionItems.map((m) => {
+                      const who =
+                        [m.user_first_name, m.user_last_name].filter(Boolean).join(" ") ||
+                        m.contact_name ||
+                        m.contact_phone ||
+                        "—";
+                      return (
+                        <li key={m.id}>
+                          <button
+                            type="button"
+                            onClick={() => openMention(m)}
+                            className={`w-full text-start rounded-xl px-2 py-2 text-xs hover:bg-gray-50 ${m.read_at ? "" : "bg-amber-50/70"}`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold truncate">{who}</span>
+                              <span className="ms-auto text-[10px] text-gray-400 shrink-0">{formatTime(m.created_at)}</span>
+                            </div>
+                            <div className="text-[11px] text-gray-500 line-clamp-2" dir="auto">
+                              <span className="font-semibold">
+                                {[m.author_first_name, m.author_last_name].filter(Boolean).join(" ")}:
+                              </span>{" "}
+                              {m.body}
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowSetup((v) => !v)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-brand-purple"
+            >
+              <HiOutlineCog /> {t("dashboard.crm.setup")}
+            </button>
+          )}
+        </div>
       </div>
 
       {isAdmin && showSetup && (
@@ -1877,6 +2048,19 @@ const CrmDashboard = () => {
         {renderProfile()}
       </div>
       {renderTicketModal()}
+      <CrmCreateAccountModal
+        open={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+        conversationId={selectedId}
+        contact={profile?.contact}
+        t={t}
+        language={language}
+        onCreated={(res) => {
+          if (res.conversation) setConversation(res.conversation);
+          loadProfile(selectedId);
+          fetchConversations({ silent: true });
+        }}
+      />
     </div>
   );
 };

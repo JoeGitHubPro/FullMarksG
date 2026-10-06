@@ -57,6 +57,27 @@ const fetchClient = async (endpoint, options = {}) => {
   }
 };
 
+// Binary download for CRM WhatsApp media (needs the auth header, so it can't
+// be a plain <img src>). Returns a Blob.
+export const fetchCrmMediaBlob = async (messageId) => {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`${BASE_URL}/crm/messages/${messageId}/media`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!response.ok) {
+    let message = "Media unavailable";
+    try {
+      message = (await response.json()).message || message;
+    } catch {
+      // not JSON
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.blob();
+};
+
 export const getFileUrl = (path) => {
   if (!path) return null;
   if (path.startsWith("http")) return path;
@@ -1494,6 +1515,34 @@ export const api = {
 
   registerCrmWebhook: async () => {
     return await fetchClient("/crm/whatsapp/webhook", { method: "POST" });
+  },
+
+  // Team: assignable staff, internal chat, mentions.
+  getCrmStaff: async () => {
+    return await fetchClient("/crm/staff", { method: "GET" });
+  },
+
+  getCrmMentions: async ({ unreadOnly = false } = {}) => {
+    return await fetchClient(`/crm/mentions${unreadOnly ? "?unread=1" : ""}`, { method: "GET" });
+  },
+
+  getCrmInternalNotes: async (conversationId) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/internal`, { method: "GET" });
+  },
+
+  addCrmInternalNote: async (conversationId, { body, mentions = [] }) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/internal`, {
+      method: "POST",
+      body: JSON.stringify({ body, mentions }),
+    });
+  },
+
+  // Create a student / parent account from a chat (and link it).
+  createCrmAccount: async (conversationId, payload) => {
+    return await fetchClient(`/crm/conversations/${conversationId}/account`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   createCrmTicket: async (conversationId, payload) => {
