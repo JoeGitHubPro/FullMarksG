@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "../i18n/LanguageContext";
 import { api, getFileUrl } from "../api";
@@ -192,6 +192,17 @@ const CoursesDashboard = () => {
   // ========== DETAIL VIEW STATES ==========
   const [activeCourse, setActiveCourse] = useState(null);
   const [courseStudents, setCourseStudents] = useState([]);
+  // Client-side filter for the Enrolled Students card — "all" | "online" | "center".
+  // Filters the already-fetched list in place, so switching never refetches
+  // or reloads the page.
+  const [enrolledStudentsTypeFilter, setEnrolledStudentsTypeFilter] =
+    useState("all");
+  const filteredCourseStudents = useMemo(() => {
+    if (enrolledStudentsTypeFilter === "all") return courseStudents;
+    return courseStudents.filter(
+      (std) => (std.student_type || "online") === enrolledStudentsTypeFilter,
+    );
+  }, [courseStudents, enrolledStudentsTypeFilter]);
 
   // ========== COURSE FORM STATES ==========
   const [isCourseFormActive, setIsCourseFormActive] = useState(false);
@@ -1709,6 +1720,7 @@ const CoursesDashboard = () => {
       setActiveCourse(null);
       setCourseStudents([]);
     }
+    setEnrolledStudentsTypeFilter("all");
     fetchFormOptions();
     fetchInstructorsAndUserRole();
   }, [slug]);
@@ -4868,6 +4880,28 @@ const CoursesDashboard = () => {
                   </span>
                 </p>
               </div>
+
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                {[
+                  { key: "all", label: "All Students" },
+                  { key: "online", label: "Online Students" },
+                  { key: "center", label: "Center Students" },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setEnrolledStudentsTypeFilter(opt.key)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold tracking-wide transition-all shrink-0 ${
+                      enrolledStudentsTypeFilter === opt.key
+                        ? "bg-[#2e0854] text-white shadow-sm shadow-brand/20"
+                        : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               {(currentUserRole === "admin" ||
                 currentUserRole === "instructor") && (
                 <div className="relative mb-3">
@@ -4940,8 +4974,8 @@ const CoursesDashboard = () => {
                 </div>
               )}
               <div className="space-y-2 border-t border-gray-50 pt-3 max-h-[300px] overflow-y-auto">
-                {courseStudents.length > 0 ? (
-                  courseStudents.map((std) => (
+                {filteredCourseStudents.length > 0 ? (
+                  filteredCourseStudents.map((std) => (
                     <div
                       key={std.student_id}
                       className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0 last:pb-0 gap-2"
@@ -5004,7 +5038,11 @@ const CoursesDashboard = () => {
                   ))
                 ) : (
                   <p className="text-[11px] text-gray-400 font-light italic text-center py-2">
-                    No students enrolled yet.
+                    {courseStudents.length === 0
+                      ? "No students enrolled yet."
+                      : enrolledStudentsTypeFilter === "online"
+                        ? "No online students enrolled."
+                        : "No center students enrolled."}
                   </p>
                 )}
               </div>
