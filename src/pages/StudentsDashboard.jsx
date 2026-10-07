@@ -15,6 +15,7 @@ import {
   DEFAULT_GOVERNORATE,
   getGovernorateLabel,
 } from "../utils/governorates";
+import { localInputToUtcIso, toDatetimeLocalValue } from "../utils/assessmentDue";
 import {
   HiOutlineArrowLeft,
   HiOutlineUser,
@@ -38,10 +39,197 @@ import {
   HiOutlineCheck,
   HiOutlineX,
   HiOutlineLocationMarker,
+  HiOutlineKey,
+  HiOutlineClock,
+  HiOutlineSearch,
 } from "react-icons/hi";
 
 const getInitials = (first, last) =>
   `${(first || "")[0] || ""}${(last || "")[0] || ""}`.toUpperCase();
+
+const fmtDate = (value) => {
+  if (!value) return "—";
+  const d = new Date(String(value).replace(" ", "T"));
+  return Number.isNaN(d.getTime())
+    ? "—"
+    : d.toLocaleDateString([], { day: "2-digit", month: "short", year: "numeric" });
+};
+
+const CODE_TYPE_LABELS = {
+  course: "Single course",
+  chapter_item: "Single item",
+  multi_course: "Multiple courses",
+  any_course: "Any course",
+  any_chapter_item: "Any item",
+  instructor_course: "Instructor's courses",
+  category: "Category (month)",
+  center_course: "Center course",
+  bundle_select: "Bundle (pick courses)",
+  manual_admin: "Manually granted",
+  online_payment: "Online payment",
+};
+
+// Inline extend/edit form for one redeemed access code — mirrors the CRM
+// profile's "extend access" control (CrmProfileDetails.jsx), but targets
+// this student's access-code record directly via
+// PUT /users/:id/access-codes/:redemptionId.
+const AccessCodeExtendForm = ({ entry, studentUserId, onCancel, onDone }) => {
+  const [mode, setMode] = useState("days"); // 'days' | 'date'
+  const [days, setDays] = useState("30");
+  const [newDate, setNewDate] = useState(
+    toDatetimeLocalValue(entry.accessExpiresAt) || "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setError("");
+    const payload =
+      mode === "days"
+        ? { additionalDays: parseInt(days, 10) }
+        : { newExpiresAt: localInputToUtcIso(newDate) };
+    if (mode === "days" && (!payload.additionalDays || payload.additionalDays < 1)) {
+      setError("Enter a valid number of days.");
+      return;
+    }
+    if (mode === "date" && !payload.newExpiresAt) {
+      setError("Enter a valid date.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.extendStudentAccessCode(studentUserId, entry.id, payload);
+      if (res.success) {
+        onDone();
+      } else {
+        setError(res.message || "Could not update this access code.");
+      }
+    } catch (err) {
+      setError(err.message || "Could not update this access code.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl bg-white border border-violet-100 p-2.5 space-y-2 mt-2">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setMode("days")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "days" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          Extend by duration
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("date")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "date" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          Set exact expiration date
+        </button>
+      </div>
+      {mode === "days" ? (
+        <input
+          type="number"
+          min="1"
+          value={days}
+          onChange={(ev) => setDays(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+          placeholder="Additional days to add"
+        />
+      ) : (
+        <input
+          type="datetime-local"
+          value={newDate}
+          onChange={(ev) => setNewDate(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+        />
+      )}
+      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-2 py-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-2.5 py-1 rounded-md bg-brand text-white text-[10px] font-bold hover:bg-brand-dark disabled:opacity-50"
+        >
+          {saving ? "Saving..." : "Save"}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// One redeemed access code, with an extend/edit control for admins/assistants.
+const AccessCodeRow = ({ entry, studentUserId, canManage, onChanged }) => {
+  const [showExtend, setShowExtend] = useState(false);
+  const isActive = entry.status === "active";
+  const label =
+    entry.courseTitle || entry.chapterItemTitle || CODE_TYPE_LABELS[entry.codeType] || "—";
+
+  return (
+    <div className="rounded-xl bg-gray-50/70 border border-transparent hover:border-violet-100 transition-all p-3">
+      <div className="flex items-start gap-2">
+        {entry.code ? (
+          <span className="font-mono text-xs font-bold text-brand-purple shrink-0">{entry.code}</span>
+        ) : (
+          <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+            {entry.codeType === "online_payment" ? "Payment" : "Manual"}
+          </span>
+        )}
+        <span className="text-xs font-semibold text-[#2e0854] flex-1 truncate" dir="auto">
+          {label}
+        </span>
+        <span
+          className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 ${
+            isActive ? "text-emerald-700 bg-emerald-50" : "text-gray-500 bg-gray-100"
+          }`}
+        >
+          {isActive ? "Active" : "Expired"}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5 text-[10px] text-gray-400">
+        <span>{CODE_TYPE_LABELS[entry.codeType] || entry.codeType}</span>
+        <span>· Activated {fmtDate(entry.activatedAt)}</span>
+        <span>
+          · Expires {entry.accessExpiresAt ? fmtDate(entry.accessExpiresAt) : "Never"}
+        </span>
+        {canManage && !showExtend && (
+          <button
+            type="button"
+            onClick={() => setShowExtend(true)}
+            className="ms-auto flex items-center gap-1 text-brand-purple font-bold shrink-0 hover:underline"
+          >
+            <HiOutlinePencil /> Edit expiration
+          </button>
+        )}
+      </div>
+      {showExtend && (
+        <AccessCodeExtendForm
+          entry={entry}
+          studentUserId={studentUserId}
+          onCancel={() => setShowExtend(false)}
+          onDone={() => {
+            setShowExtend(false);
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+};
 
 const StudentsDashboard = () => {
   const { slug } = useParams();
@@ -49,10 +237,15 @@ const StudentsDashboard = () => {
   const { user } = useAuth();
   const { t, language } = useTranslation();
   const isAdmin = user?.role === "admin";
+  // Extending/editing an access code's expiry is admin + assistant only,
+  // matching the backend route and the CRM "extend access" control.
+  const canManageAccessCodes = isAdmin || user?.role === "assistant";
 
   // Core Data States
   const [studentsData, setStudentsData] = useState([]);
   const [studentTypeFilter, setStudentTypeFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const STUDENTS_PAGE_SIZE = 20;
   const [pagination, setPagination] = useState({
@@ -64,6 +257,8 @@ const StudentsDashboard = () => {
   const [typeCounts, setTypeCounts] = useState({ online: 0, center: 0 });
   const [activeStudent, setActiveStudent] = useState(null);
   const [enrollments, setEnrollments] = useState([]);
+  const [accessCodes, setAccessCodes] = useState([]);
+  const [accessCodesLoading, setAccessCodesLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -140,6 +335,7 @@ const StudentsDashboard = () => {
         page: targetPage,
         limit: STUDENTS_PAGE_SIZE,
         studentType: studentTypeFilter === "all" ? undefined : studentTypeFilter,
+        search: debouncedSearch || undefined,
       });
       if (response.success) {
         setStudentsData(response.data);
@@ -177,6 +373,7 @@ const StudentsDashboard = () => {
         }
         fetchStudentNotes(id);
         fetchVideoSummary(id);
+        fetchStudentAccessCodes(id);
       } else {
         setError(t("dashboard.students.notFound"));
         setActiveStudent(null);
@@ -185,6 +382,20 @@ const StudentsDashboard = () => {
       setError(err?.message || "Failed to retrieve student profile.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Fetch the access codes this student has redeemed (course, activation /
+  // expiry dates, status) for the Access Codes panel.
+  const fetchStudentAccessCodes = async (id) => {
+    setAccessCodesLoading(true);
+    try {
+      const res = await api.getStudentAccessCodes(id);
+      setAccessCodes(res.success ? res.data || [] : []);
+    } catch (err) {
+      setAccessCodes([]);
+    } finally {
+      setAccessCodesLoading(false);
     }
   };
 
@@ -442,7 +653,16 @@ const StudentsDashboard = () => {
     setIsFormViewActive(false);
     fetchAcademicLevels();
     fetchCurriculums();
-  }, [slug, page, studentTypeFilter]);
+  }, [slug, page, studentTypeFilter, debouncedSearch]);
+
+  // Debounce the search box so every keystroke doesn't refetch the list.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setDebouncedSearch(search.trim());
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(id);
+  }, [search]);
 
   useEffect(() => {
     if (!activeStudent?.id) {
@@ -1790,6 +2010,48 @@ const StudentsDashboard = () => {
               </div>
             </div>
 
+            {/* Access Codes Panel */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-[0_15px_40px_rgba(43,2,7,0.01)]">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="font-heading font-black text-base text-[#2e0854] flex items-center gap-2">
+                    <HiOutlineKey className="text-brand-purple" />
+                    Access Codes
+                  </h3>
+                  <p className="text-[11px] text-gray-400 font-light">
+                    Every course/item this student can access — via a redeemed code,
+                    online payment, or a manual grant — and its access expiry
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-brand bg-violet-50 border border-violet-100 px-3 py-1 rounded-xl">
+                  {accessCodes.length} {accessCodes.length === 1 ? "entry" : "entries"}
+                </span>
+              </div>
+              {accessCodesLoading ? (
+                <div className="h-20 flex items-center justify-center">
+                  <div className="w-5 h-5 border-4 border-brand border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : accessCodes.length > 0 ? (
+                <div className="space-y-2.5">
+                  {accessCodes.map((entry) => (
+                    <AccessCodeRow
+                      key={entry.id}
+                      entry={entry}
+                      studentUserId={activeStudent.id}
+                      canManage={canManageAccessCodes}
+                      onChanged={() => fetchStudentAccessCodes(activeStudent.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 border border-dashed border-gray-100 rounded-2xl bg-gray-50/30">
+                  <p className="text-xs text-gray-400 font-light">
+                    This student has no access codes, payments, or manual grants yet.
+                  </p>
+                </div>
+              )}
+            </div>
+
             {/* Assignments & Grades Panel */}
             <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -2021,7 +2283,7 @@ const StudentsDashboard = () => {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2 bg-white border border-gray-100 rounded-2xl p-1.5 w-fit shadow-[0_15px_40px_rgba(43,2,7,0.02)]">
           {typeFilters.map((filter) => (
             <button
@@ -2049,6 +2311,17 @@ const StudentsDashboard = () => {
               </span>
             </button>
           ))}
+        </div>
+
+        <div className="relative w-full sm:w-64">
+          <HiOutlineSearch className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, phone, or email..."
+            className="w-full bg-white border border-gray-100 rounded-2xl ps-9 pe-3 py-2.5 text-xs shadow-[0_15px_40px_rgba(43,2,7,0.02)] focus:outline-none focus:border-violet-200"
+          />
         </div>
 
         {pagination.total > 0 && (

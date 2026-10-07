@@ -217,6 +217,154 @@ const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
   );
 };
 
+// Extend/edit ONE redeemed access code's expiry — for a code that unlocked
+// several courses/items at once (a Bundle code, "Pick one" code, etc.) this
+// updates all of them in a single action instead of opening each course and
+// extending it one by one. Mirrors ExtendAccessForm above but targets
+// PUT /crm/students/:studentId/codes/:redemptionId/access.
+const CodeExtendForm = ({ c, studentId, t, onDone, onCancel }) => {
+  const [mode, setMode] = useState("days"); // 'days' | 'date'
+  const [days, setDays] = useState("30");
+  const [newDate, setNewDate] = useState(
+    toDatetimeLocalValue(c.access_expires_at) || "",
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSave = async () => {
+    setError("");
+    const payload =
+      mode === "days"
+        ? { additionalDays: parseInt(days, 10) }
+        : { newExpiresAt: localInputToUtcIso(newDate) };
+    if (mode === "days" && (!payload.additionalDays || payload.additionalDays < 1)) {
+      setError(t("dashboard.crm.profile.invalidDays"));
+      return;
+    }
+    if (mode === "date" && !payload.newExpiresAt) {
+      setError(t("dashboard.crm.profile.invalidDate"));
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.extendCrmStudentCodeAccess(studentId, c.id, payload);
+      if (res.success) {
+        onDone();
+      } else {
+        setError(res.message || t("dashboard.common.updateFailed"));
+      }
+    } catch (err) {
+      setError(err.message || t("dashboard.common.updateFailed"));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg bg-white border border-violet-100 p-2 space-y-2 mt-1.5">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => setMode("days")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "days" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {t("dashboard.crm.profile.addDays")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("date")}
+          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+            mode === "date" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          {t("dashboard.crm.profile.setNewDate")}
+        </button>
+      </div>
+      {mode === "days" ? (
+        <input
+          type="number"
+          min="1"
+          value={days}
+          onChange={(ev) => setDays(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+          placeholder={t("dashboard.crm.profile.additionalDays")}
+        />
+      ) : (
+        <input
+          type="datetime-local"
+          value={newDate}
+          onChange={(ev) => setNewDate(ev.target.value)}
+          className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
+        />
+      )}
+      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      <div className="flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-2 py-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700"
+        >
+          {t("dashboard.common.cancel")}
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="px-2.5 py-1 rounded-md bg-brand text-white text-[10px] font-bold hover:bg-brand-dark disabled:opacity-50"
+        >
+          {saving ? t("dashboard.common.saving") : t("dashboard.common.save")}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const CodeRow = ({ c, studentId, t, onAccessExtended }) => {
+  const [showExtend, setShowExtend] = useState(false);
+  // A code that grants several courses/items at once (Bundle, Pick-one,
+  // etc.) has no single course_title resolved server-side, so fall back to
+  // its type so staff still know what they're extending.
+  const label = c.course_title || c.code_type;
+
+  return (
+    <li className="text-xs">
+      <div className="flex items-start gap-2">
+        <span className="font-mono font-bold text-brand-purple shrink-0" dir="ltr">{c.code}</span>
+        <span className="text-gray-400 text-[10px] flex-1 text-end">
+          {label}
+          <span className="block">{fmtDate(c.redeemed_at)}</span>
+        </span>
+      </div>
+      <div className="flex items-center justify-end mt-1">
+        {!showExtend && (
+          <button
+            type="button"
+            onClick={() => setShowExtend(true)}
+            className="flex items-center gap-1 text-brand-purple font-bold shrink-0 hover:underline text-[10px]"
+          >
+            <HiOutlineClock />
+            {t("dashboard.crm.profile.extendAccess")}
+          </button>
+        )}
+      </div>
+      {showExtend && (
+        <CodeExtendForm
+          c={c}
+          studentId={studentId}
+          t={t}
+          onCancel={() => setShowExtend(false)}
+          onDone={() => {
+            setShowExtend(false);
+            onAccessExtended();
+          }}
+        />
+      )}
+    </li>
+  );
+};
+
 const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
   const [showGrades, setShowGrades] = useState(false);
   const [showExtend, setShowExtend] = useState(false);
@@ -449,15 +597,15 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
 
       <CrmSection icon={HiOutlineKey} title={t("dashboard.crm.codesUsed")} count={data.codes?.length || 0} defaultOpen={!compact}>
         {data.codes?.length ? (
-          <ul className="space-y-1.5">
+          <ul className="space-y-2">
             {data.codes.map((c) => (
-              <li key={c.id} className="text-xs flex items-start gap-2">
-                <span className="font-mono font-bold text-brand-purple" dir="ltr">{c.code}</span>
-                <span className="text-gray-400 text-[10px] flex-1 text-end">
-                  {c.course_title || c.code_type}
-                  <span className="block">{fmtDate(c.redeemed_at)}</span>
-                </span>
-              </li>
+              <CodeRow
+                key={c.id}
+                c={c}
+                t={t}
+                studentId={s.id}
+                onAccessExtended={onAccessExtended}
+              />
             ))}
           </ul>
         ) : (

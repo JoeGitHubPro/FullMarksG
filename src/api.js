@@ -885,6 +885,27 @@ export const api = {
     });
   },
 
+  // Every access code this student has redeemed, for the Student Profile's
+  // "Access Codes" section.
+  getStudentAccessCodes: async (studentUserId) => {
+    return await fetchClient(`/users/${studentUserId}/access-codes`, {
+      method: "GET",
+    });
+  },
+
+  // Extend/edit one redeemed access code's expiry. Pass EITHER
+  // { newExpiresAt } (a UTC ISO string, e.g. from localInputToUtcIso) OR
+  // { additionalDays } (a number of days to add) in `payload`.
+  extendStudentAccessCode: async (studentUserId, redemptionId, payload) => {
+    return await fetchClient(
+      `/users/${studentUserId}/access-codes/${redemptionId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
   getStudentNotes: async (studentUserId) => {
     return await fetchClient(`/users/${studentUserId}/notes`, {
       method: "GET",
@@ -1541,6 +1562,19 @@ export const api = {
   extendCrmStudentCourseAccess: async (studentId, courseId, payload) => {
     return await fetchClient(
       `/crm/students/${studentId}/courses/${courseId}/access`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      },
+    );
+  },
+
+  // Extends one redeemed access code's expiry for EVERY course/item it
+  // unlocked, in a single call — used by the "Bundle codes used" list so
+  // staff don't have to extend each course the code granted one by one.
+  extendCrmStudentCodeAccess: async (studentId, redemptionId, payload) => {
+    return await fetchClient(
+      `/crm/students/${studentId}/codes/${redemptionId}/access`,
       {
         method: "PUT",
         body: JSON.stringify(payload),
