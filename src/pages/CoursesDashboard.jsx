@@ -204,6 +204,18 @@ const CoursesDashboard = () => {
     );
   }, [courseStudents, enrolledStudentsTypeFilter]);
 
+  // Breakdown counts for the Enrolled Students card — always computed from
+  // the full (unfiltered) roster so Online + Center always add up to Total,
+  // regardless of which filter pill is currently selected.
+  const enrolledStudentsCounts = useMemo(() => {
+    const total = courseStudents.length;
+    const online = courseStudents.filter(
+      (std) => (std.student_type || "online") === "online",
+    ).length;
+    const center = total - online;
+    return { total, online, center };
+  }, [courseStudents]);
+
   // ========== COURSE FORM STATES ==========
   const [isCourseFormActive, setIsCourseFormActive] = useState(false);
   const [courseFormMode, setCourseFormMode] = useState("create");
@@ -4873,31 +4885,46 @@ const CoursesDashboard = () => {
                 <h3 className="font-heading font-bold text-sm text-[#2e0854]">
                   {t("dashboard.courses.enrolledStudents")}
                 </h3>
-                <p className="text-[11px] text-gray-400 font-light">
-                  Total enrolled:{" "}
-                  <span className="font-bold font-mono text-gray-600">
-                    {activeCourse.enrolledCount ?? 0}
-                  </span>
-                </p>
               </div>
 
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
-                  { key: "all", label: "All Students" },
-                  { key: "online", label: "Online Students" },
-                  { key: "center", label: "Center Students" },
+                  {
+                    key: "all",
+                    label: "All Students",
+                    count: enrolledStudentsCounts.total,
+                  },
+                  {
+                    key: "online",
+                    label: "Online Students",
+                    count: enrolledStudentsCounts.online,
+                  },
+                  {
+                    key: "center",
+                    label: "Center Students",
+                    count: enrolledStudentsCounts.center,
+                  },
                 ].map((opt) => (
                   <button
                     key={opt.key}
                     type="button"
                     onClick={() => setEnrolledStudentsTypeFilter(opt.key)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-semibold tracking-wide transition-all shrink-0 ${
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold tracking-wide transition-all shrink-0 ${
                       enrolledStudentsTypeFilter === opt.key
                         ? "bg-[#2e0854] text-white shadow-sm shadow-brand/20"
                         : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {opt.label}
+                    <span>{opt.label}</span>
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-[10px] font-bold font-mono ${
+                        enrolledStudentsTypeFilter === opt.key
+                          ? "bg-white/20 text-white"
+                          : "bg-gray-100 text-gray-500"
+                      }`}
+                    >
+                      {opt.count}
+                    </span>
                   </button>
                 ))}
               </div>

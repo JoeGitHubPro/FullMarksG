@@ -128,7 +128,7 @@ const MediaView = ({ kind, src, mime, outgoing, t }) => {
       href={src}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-flex items-center gap-1 underline font-semibold ${outgoing ? "text-white" : "text-brand-purple"}`}
+      className="inline-flex items-center gap-1 underline font-semibold text-brand"
     >
       📎 {t("dashboard.crm.media.openFile")}
     </a>
@@ -263,17 +263,17 @@ const initials = (name) =>
     .toUpperCase() || "?";
 
 const Section = ({ icon: Icon, title, count, children }) => (
-  <div className="border-t border-gray-100 pt-4">
-    <h4 className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2">
-      <Icon className="text-brand-purple text-sm" />
+  <div className="rounded-xl border border-[#ebe6f5] bg-white overflow-hidden">
+    <h4 className="flex items-center gap-2 min-h-11 px-3 bg-[#f4f1fa] text-xs font-bold text-brand">
+      <Icon className="text-brand-violet text-base shrink-0" />
       {title}
       {typeof count === "number" && (
-        <span className="ms-auto rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">
+        <span className="ms-auto rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] text-brand">
           {count}
         </span>
       )}
     </h4>
-    {children}
+    <div className="p-3">{children}</div>
   </div>
 );
 
@@ -898,8 +898,8 @@ const CrmDashboard = () => {
                   }
                   className={`rounded-xl border px-3 py-2 font-semibold text-start disabled:opacity-40 ${
                     ticketForm.ticketType === value
-                      ? "border-violet-300 bg-violet-50 text-brand-purple"
-                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      ? "border-brand-violet bg-[#ede9fe] text-brand"
+                      : "border-[#ddd6ea] text-gray-600 hover:bg-[#f4f1fa]"
                   }`}
                 >
                   {t(`dashboard.crm.ticket.${key}`)}
@@ -907,7 +907,7 @@ const CrmDashboard = () => {
               ))}
             </div>
             {!canCourse && (
-              <p className="text-[11px] text-gray-400">{t("dashboard.crm.ticket.courseNeedsStudent")}</p>
+              <p className="text-[11px] text-gray-500">{t("dashboard.crm.ticket.courseNeedsStudent")}</p>
             )}
           </div>
 
@@ -995,7 +995,7 @@ const CrmDashboard = () => {
             />
             <span>
               <span className="font-semibold block">{t("dashboard.crm.ticket.notifyCustomer")}</span>
-              <span className="text-gray-400">{t("dashboard.crm.ticket.notifyCustomerHint")}</span>
+              <span className="text-gray-500">{t("dashboard.crm.ticket.notifyCustomerHint")}</span>
             </span>
           </label>
 
@@ -1010,14 +1010,14 @@ const CrmDashboard = () => {
               type="button"
               onClick={() => setShowTicketModal(false)}
               disabled={ticketBusy}
-              className="rounded-xl border border-gray-200 px-4 py-2 font-semibold text-gray-600"
+              className="rounded-full border border-[#ddd6ea] px-5 h-11 font-semibold text-brand-violet hover:bg-[#f4f1fa]"
             >
               {t("dashboard.crm.ticket.cancel")}
             </button>
             <button
               type="submit"
               disabled={ticketBusy || !ticketForm.subject.trim()}
-              className="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-violet-300 text-white font-semibold px-4 py-2"
+              className="rounded-full bg-brand hover:bg-brand-hover disabled:bg-violet-300 text-white font-semibold px-6 h-11"
             >
               {ticketBusy ? t("dashboard.crm.ticket.creating") : t("dashboard.crm.ticket.create")}
             </button>
@@ -1041,11 +1041,11 @@ const CrmDashboard = () => {
                 to={`/dashboard/support?channel=${tk.ticket_type}&ticket=${tk.id}`}
                 className="flex items-start gap-2 rounded-xl bg-gray-50 hover:bg-violet-50 px-3 py-2 text-xs"
               >
-                <span className="font-mono text-gray-400">#{tk.id}</span>
+                <span className="font-mono text-gray-500">#{tk.id}</span>
                 <span className="flex-1 min-w-0">
                   <span className="font-semibold block truncate" dir="auto">{tk.subject}</span>
                   {tk.course_title && (
-                    <span className="text-[10px] text-gray-400 block truncate">{tk.course_title}</span>
+                    <span className="text-[10px] text-gray-500 block truncate">{tk.course_title}</span>
                   )}
                 </span>
                 <span className="shrink-0 text-[9px] font-bold uppercase text-brand-purple">
@@ -1056,7 +1056,7 @@ const CrmDashboard = () => {
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+        <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
       )}
       <button
         type="button"
@@ -1073,29 +1073,29 @@ const CrmDashboard = () => {
 
   const renderConversationList = () => (
     <div
-      className={`${selectedId ? "hidden lg:flex" : "flex"} flex-col bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden min-h-0`}
+      className={`${selectedId ? "hidden lg:flex" : "flex"} flex-col bg-white rounded-2xl border border-[#ebe6f5] shadow-[0_4px_16px_rgba(46,8,84,0.08)] overflow-hidden min-h-0`}
     >
-      <div className="p-4 space-y-3 border-b border-gray-100">
+      <div className="px-3 py-3 space-y-3 border-b border-[#ebe6f5]">
         <div className="relative">
-          <HiOutlineSearch className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <HiOutlineSearch className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("dashboard.crm.searchPlaceholder")}
-            className="w-full bg-gray-50 text-xs rounded-xl ps-9 pe-3 py-2.5 border border-transparent focus:border-violet-200 focus:bg-white focus:outline-none"
+            className="w-full bg-[#f4f1fa] text-sm rounded-full ps-11 pe-4 h-11 border border-transparent focus:border-brand-violet focus:bg-white focus:outline-none"
           />
         </div>
-        <div className="flex gap-1 bg-gray-50 rounded-xl p-1">
+        <div className="flex border-b border-[#ebe6f5]">
           {["open", "closed", "all"].map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => setStatusFilter(s)}
-              className={`flex-1 text-[11px] font-semibold rounded-lg py-1.5 transition-all ${
+              className={`flex-1 text-xs font-semibold py-2.5 border-b-[3px] transition-colors ${
                 statusFilter === s
-                  ? "bg-white shadow-sm text-brand-purple"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "border-brand-violet text-brand-violet"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
               {t(`dashboard.crm.status.${s}`)}
@@ -1114,10 +1114,10 @@ const CrmDashboard = () => {
               key={key}
               type="button"
               onClick={() => setQuickFilter(value)}
-              className={`text-[10px] font-semibold rounded-full px-2.5 py-1 border transition-all ${
+              className={`text-xs font-semibold rounded-full h-8 px-3.5 inline-flex items-center transition-colors ${
                 quickFilter === value
-                  ? "border-violet-200 bg-violet-50 text-brand-purple"
-                  : "border-gray-200 text-gray-500 hover:bg-gray-50"
+                  ? "bg-[#ede9fe] text-brand"
+                  : "bg-[#f4f1fa] text-[#4b4560] hover:bg-[#ebe6f5]"
               }`}
             >
               {t(`dashboard.crm.${key}`)}
@@ -1139,7 +1139,7 @@ const CrmDashboard = () => {
             {listError}
           </div>
         ) : conversations.length === 0 ? (
-          <div className="text-center py-16 px-6 text-gray-400 text-xs">
+          <div className="text-center py-16 px-6 text-gray-500 text-xs">
             <HiOutlineChatAlt2 className="mx-auto text-3xl mb-2 text-gray-300" />
             {t("dashboard.crm.emptyList")}
           </div>
@@ -1154,15 +1154,15 @@ const CrmDashboard = () => {
                 key={conv.id}
                 type="button"
                 onClick={() => setSelectedId(conv.id)}
-                className={`w-full text-start flex gap-3 px-4 py-3 border-b border-gray-50 transition-colors ${
-                  active ? "bg-violet-50/70" : "hover:bg-gray-50"
+                className={`w-full text-start flex gap-3 px-3.5 py-3 border-b border-[#f4f1fa] transition-colors ${
+                  active ? "bg-[#f4f1fa]" : "hover:bg-[#faf8fe]"
                 }`}
               >
                 <div
-                  className={`relative shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold ${
+                  className={`relative shrink-0 w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold ${
                     conv.user_id
-                      ? "bg-violet-100 text-brand-purple"
-                      : "bg-amber-50 text-amber-600"
+                      ? "bg-[#ede9fe] text-brand"
+                      : "bg-amber-100 text-amber-800"
                   }`}
                 >
                   {initials(name)}
@@ -1170,24 +1170,32 @@ const CrmDashboard = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold truncate">{name}</span>
-                    <span className="ms-auto text-[10px] text-gray-400 shrink-0">
+                    <span
+                      className={`text-sm truncate ${conv.unread_count > 0 ? "font-bold" : "font-semibold"}`}
+                    >
+                      {name}
+                    </span>
+                    <span
+                      className={`ms-auto text-[11px] shrink-0 ${
+                        conv.unread_count > 0 ? "text-brand-violet font-bold" : "text-gray-500"
+                      }`}
+                    >
                       {formatTime(conv.last_message_at)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span
                       className={`text-xs truncate ${
-                        conv.unread_count > 0 ? "text-gray-800 font-medium" : "text-gray-400"
+                        conv.unread_count > 0 ? "text-gray-900 font-semibold" : "text-gray-500"
                       }`}
                     >
                       {conv.last_direction === "out" && (
-                        <span className="text-gray-400">{t("dashboard.crm.youPrefix")} </span>
+                        <span className="text-gray-500">{t("dashboard.crm.youPrefix")} </span>
                       )}
                       {conv.last_message_preview || "—"}
                     </span>
                     {conv.unread_count > 0 && (
-                      <span className="ms-auto shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-brand text-white text-[10px] font-bold flex items-center justify-center">
+                      <span className="ms-auto shrink-0 min-w-[20px] h-5 px-1.5 rounded-full bg-brand-violet text-white text-[11px] font-bold flex items-center justify-center">
                         {conv.unread_count}
                       </span>
                     )}
@@ -1203,7 +1211,7 @@ const CrmDashboard = () => {
                       </span>
                     )}
                     {conv.assignee_first_name && (
-                      <span className="text-[9px] text-gray-400 truncate">
+                      <span className="text-[9px] text-gray-500 truncate">
                         → {conv.assignee_first_name}
                       </span>
                     )}
@@ -1213,7 +1221,7 @@ const CrmDashboard = () => {
                       </span>
                     ) : Number(conv.internal_count) > 0 ? (
                       <span
-                        className="ms-auto shrink-0 inline-flex items-center gap-0.5 text-[9px] text-gray-400"
+                        className="ms-auto shrink-0 inline-flex items-center gap-0.5 text-[9px] text-gray-500"
                         title={t("dashboard.crm.internal.tab")}
                       >
                         <HiOutlineLockClosed /> {conv.internal_count}
@@ -1236,9 +1244,9 @@ const CrmDashboard = () => {
       // (details) card, never injected in here, so this middle card always
       // stays this one stable empty state regardless of search status.
       return (
-        <div className="hidden lg:flex flex-col items-center justify-center bg-white border border-gray-100 rounded-3xl shadow-sm text-center p-10 text-gray-400">
-          <HiOutlineChatAlt2 className="text-5xl text-gray-200 mb-3" />
-          <p className="text-sm font-semibold text-gray-500">{t("dashboard.crm.selectConversation")}</p>
+        <div className="hidden lg:flex flex-col items-center justify-center bg-white rounded-2xl border border-[#ebe6f5] shadow-[0_4px_16px_rgba(46,8,84,0.08)] text-center p-10 text-gray-500">
+          <HiOutlineChatAlt2 className="text-5xl text-brand-violet/40 mb-3" />
+          <p className="text-sm font-semibold text-gray-700">{t("dashboard.crm.selectConversation")}</p>
           <p className="text-xs mt-1 max-w-xs">{t("dashboard.crm.selectConversationHint")}</p>
         </div>
       );
@@ -1248,10 +1256,10 @@ const CrmDashboard = () => {
 
     return (
       <div
-        className={`${showProfileMobile ? "hidden xl:flex" : "flex"} flex-col bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden min-h-0`}
+        className={`${showProfileMobile ? "hidden xl:flex" : "flex"} flex-col bg-white rounded-2xl border border-[#ebe6f5] shadow-[0_4px_16px_rgba(46,8,84,0.08)] overflow-hidden min-h-0`}
       >
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#ddd6ea] bg-[#f4f1fa]">
           <button
             type="button"
             onClick={() => setSelectedId(null)}
@@ -1260,13 +1268,13 @@ const CrmDashboard = () => {
           >
             <HiOutlineArrowLeft className="rtl:rotate-180" />
           </button>
-          <div className="relative w-9 h-9 rounded-full bg-violet-100 text-brand-purple flex items-center justify-center text-xs font-bold">
+          <div className="relative w-11 h-11 shrink-0 rounded-full bg-[#ede9fe] text-brand flex items-center justify-center text-sm font-semibold">
             {initials(headerName)}
             {conversation && <ChannelDot channel={conversation.channel} />}
           </div>
           <div className="min-w-0">
-            <div className="text-sm font-bold truncate">{headerName || "…"}</div>
-            <div className="text-[11px] text-gray-400 truncate">
+            <div className="text-base font-semibold truncate">{headerName || "…"}</div>
+            <div className="text-xs text-gray-500 truncate">
               {conversation?.channel === "facebook" ? (
                 <span className="text-blue-600 font-semibold">
                   {t("dashboard.crm.channelMessenger")}
@@ -1290,10 +1298,10 @@ const CrmDashboard = () => {
               }
               aria-label={t("dashboard.crm.assign.label")}
               title={t("dashboard.crm.assign.label")}
-              className={`max-w-[150px] text-[11px] font-semibold rounded-lg border px-2 py-1.5 bg-white ${
+              className={`max-w-[160px] text-xs font-semibold rounded-full border px-3 h-10 bg-white ${
                 conversation?.assigned_to
-                  ? "border-violet-200 text-brand-purple"
-                  : "border-gray-200 text-gray-600"
+                  ? "border-brand-violet/40 text-brand-violet"
+                  : "border-[#ddd6ea] text-gray-600"
               }`}
             >
               <option value="">{t("dashboard.crm.assign.unassigned")}</option>
@@ -1328,7 +1336,7 @@ const CrmDashboard = () => {
             <button
               type="button"
               onClick={openTicketModal}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-lg border border-violet-200 px-2.5 py-1.5 text-brand-purple hover:bg-violet-50"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold rounded-full border border-[#ddd6ea] bg-white px-3.5 h-10 text-brand-violet hover:bg-[#ede9fe]"
             >
               <HiOutlineTicket />
               <span className="hidden sm:inline">{t("dashboard.crm.ticket.open")}</span>
@@ -1336,10 +1344,10 @@ const CrmDashboard = () => {
             <button
               type="button"
               onClick={() => updateConversation({ status: isClosed ? "open" : "closed" })}
-              className={`text-[11px] font-semibold rounded-lg px-2.5 py-1.5 flex items-center gap-1 ${
+              className={`text-xs font-semibold rounded-full px-4 h-10 flex items-center gap-1.5 ${
                 isClosed
-                  ? "border border-gray-200 text-gray-600 hover:bg-gray-50"
-                  : "bg-green-50 text-green-700 hover:bg-green-100"
+                  ? "border border-[#ddd6ea] bg-white text-gray-700 hover:bg-[#ede9fe]"
+                  : "bg-brand text-white hover:bg-brand-hover"
               }`}
             >
               <HiOutlineCheckCircle />
@@ -1379,7 +1387,14 @@ const CrmDashboard = () => {
         <div
           ref={scrollRef}
           onScroll={handleThreadScroll}
-          className="flex-1 overflow-y-auto min-h-0 px-4 py-4 space-y-2 bg-gray-50/60"
+          className="flex-1 overflow-y-auto min-h-0 px-4 sm:px-[6%] py-4 space-y-1.5"
+          style={{
+            backgroundColor: "#ebe6f5",
+            backgroundImage:
+              "radial-gradient(rgba(31,21,53,.045) 1.5px, transparent 1.6px), radial-gradient(rgba(31,21,53,.03) 1.5px, transparent 1.6px)",
+            backgroundSize: "26px 26px",
+            backgroundPosition: "0 0, 13px 13px",
+          }}
         >
           {threadLoading ? (
             <div className="h-full flex items-center justify-center">
@@ -1390,20 +1405,30 @@ const CrmDashboard = () => {
               {threadError}
             </div>
           ) : messages.length === 0 ? (
-            <div className="text-center text-xs text-gray-400 py-10">{t("dashboard.crm.noMessages")}</div>
+            <div className="text-center text-xs text-gray-500 py-10">{t("dashboard.crm.noMessages")}</div>
           ) : (
-            messages.map((m) => {
+            messages.map((m, idx) => {
               const outgoing = m.direction === "out";
               const failed = m.status === "failed";
+              const dayLabel = formatDate(m.created_at);
+              const showDay = idx === 0 || formatDate(messages[idx - 1].created_at) !== dayLabel;
               return (
-                <div key={m.id} className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>
+                <React.Fragment key={m.id}>
+                {showDay && dayLabel !== "—" && (
+                  <div className="flex justify-center py-1.5">
+                    <span className="rounded-lg bg-white px-3 py-1 text-xs font-semibold text-[#4b4560] shadow-sm">
+                      {dayLabel}
+                    </span>
+                  </div>
+                )}
+                <div className={`flex ${outgoing ? "justify-end" : "justify-start"}`}>
                   <div
-                    className={`max-w-[80%] rounded-2xl px-3.5 py-2 text-sm shadow-sm ${
+                    className={`max-w-[80%] rounded-lg px-3 py-1.5 text-sm shadow-sm ${
                       outgoing
                         ? failed
-                          ? "bg-red-50 border border-red-200 text-red-800 rounded-ee-md"
-                          : "bg-brand text-white rounded-ee-md"
-                        : "bg-white border border-gray-100 text-gray-800 rounded-es-md"
+                          ? "bg-red-50 border border-red-200 text-red-800 rounded-ee-none"
+                          : "bg-[#ede9fe] text-[#1f1535] rounded-ee-none"
+                        : "bg-white text-[#1f1535] rounded-es-none"
                     }`}
                   >
                     <MessageBody
@@ -1413,9 +1438,7 @@ const CrmDashboard = () => {
                       t={t}
                     />
                     <div
-                      className={`mt-1 flex items-center gap-1.5 text-[10px] ${
-                        outgoing && !failed ? "text-white/70" : "text-gray-400"
-                      }`}
+                      className="mt-1 flex items-center justify-end gap-1.5 text-[11px] text-gray-500"
                     >
                       {outgoing && m.sender_first_name && <span>{m.sender_first_name} ·</span>}
                       <span>{formatDateTime(m.created_at)}</span>
@@ -1427,13 +1450,14 @@ const CrmDashboard = () => {
                     </div>
                   </div>
                 </div>
+                </React.Fragment>
               );
             })
           )}
         </div>
 
         {/* Composer */}
-        <form onSubmit={handleSend} className="border-t border-gray-100 p-3">
+        <form onSubmit={handleSend} className="border-t border-[#ddd6ea] bg-[#f4f1fa] px-3 py-2.5">
           {sendError && (
             <div className="mb-2 p-2 bg-red-50 border border-red-100 text-red-700 rounded-lg text-[11px] font-semibold">
               {sendError}
@@ -1448,18 +1472,18 @@ const CrmDashboard = () => {
               maxLength={channelMeta(conversation?.channel).maxLength}
               dir="auto"
               placeholder={t("dashboard.crm.replyPlaceholder")}
-              className="flex-1 resize-none bg-gray-50 text-sm rounded-2xl px-4 py-3 border border-transparent focus:border-violet-200 focus:bg-white focus:outline-none"
+              className="flex-1 resize-none bg-white text-sm rounded-3xl px-4 py-3 border border-transparent focus:border-brand-violet focus:outline-none"
             />
             <button
               type="submit"
               disabled={sending || !draft.trim()}
-              className="shrink-0 h-11 px-4 rounded-2xl bg-brand hover:bg-brand-dark disabled:bg-violet-300 text-white text-sm font-semibold flex items-center gap-1.5"
+              className="shrink-0 h-12 px-5 rounded-full bg-brand hover:bg-brand-hover disabled:bg-violet-300 text-white text-sm font-semibold flex items-center gap-1.5"
             >
               <HiOutlinePaperAirplane className="rotate-90 rtl:-rotate-90" />
               {sending ? t("dashboard.crm.sending") : t("dashboard.crm.send")}
             </button>
           </div>
-          <p className="mt-1.5 text-[10px] text-gray-400">
+          <p className="mt-1.5 px-1 text-[11px] text-gray-500">
             {conversation?.channel === "facebook"
               ? t("dashboard.crm.composerHintMessenger")
               : conversation?.channel === "instagram"
@@ -1505,10 +1529,10 @@ const CrmDashboard = () => {
 
     return (
       <div
-        className={`${showProfileMobile ? "flex" : "hidden xl:flex"} flex-col bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden min-h-0`}
+        className={`${showProfileMobile ? "flex" : "hidden xl:flex"} flex-col bg-white rounded-2xl border border-[#ebe6f5] shadow-[0_4px_16px_rgba(46,8,84,0.08)] overflow-hidden min-h-0`}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
-          <span className="text-xs font-bold text-gray-500">{t("dashboard.crm.contactDetails")}</span>
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#ddd6ea] bg-[#f4f1fa]">
+          <span className="text-xs font-bold text-gray-600">{t("dashboard.crm.contactDetails")}</span>
         </div>
         <div className="flex-1 overflow-y-auto min-h-0 p-4">
           {contactLookup.status === "loading" && (
@@ -1518,7 +1542,7 @@ const CrmDashboard = () => {
           )}
 
           {contactLookup.status === "notfound" && (
-            <div className="flex flex-col items-center justify-center text-center text-gray-400 py-10">
+            <div className="flex flex-col items-center justify-center text-center text-gray-500 py-10">
               <HiOutlineExclamationCircle className="text-4xl text-gray-200 mb-2" />
               <p className="text-sm font-semibold text-gray-500">{t("dashboard.crm.noCustomerFound")}</p>
               <p className="text-xs mt-1 max-w-xs">{t("dashboard.crm.noCustomerFoundHint")}</p>
@@ -1544,7 +1568,7 @@ const CrmDashboard = () => {
                     )}
                     <div className="min-w-0">
                       <div className="font-bold text-sm truncate">{fullName}</div>
-                      <div className="text-[11px] text-gray-400 font-mono" dir="ltr">{u.phone}</div>
+                      <div className="text-[11px] text-gray-500 font-mono" dir="ltr">{u.phone}</div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-brand-purple">
                           {t(`dashboard.crm.roles.${u.role}`)}
@@ -1570,14 +1594,14 @@ const CrmDashboard = () => {
                     <ParentDetails data={contactLookup.data} user={u} t={t} language={language} />
                   )}
                   {u.role !== "student" && u.role !== "parent" && (
-                    <dl className="text-xs space-y-1.5">
+                    <dl className="text-[13px] divide-y divide-[#f4f1fa] [&>div]:py-1.5 rounded-xl border border-[#ebe6f5] bg-white px-3 py-1">
                       {[
                         [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
                         [t("dashboard.crm.email"), u.email || "—"],
                         [t("dashboard.crm.joined"), formatDate(u.created_at)],
                       ].map(([label, value]) => (
                         <div key={label} className="flex justify-between gap-3">
-                          <dt className="text-gray-400 shrink-0">{label}</dt>
+                          <dt className="text-gray-500 shrink-0">{label}</dt>
                           <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
                         </div>
                       ))}
@@ -1626,22 +1650,22 @@ const CrmDashboard = () => {
             </div>
             <dl className="text-xs space-y-2">
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-400">{nameLabel}</dt>
+                <dt className="text-gray-500">{nameLabel}</dt>
                 <dd className="font-semibold text-end">{contact.name || "—"}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-400">{t("dashboard.crm.phone")}</dt>
+                <dt className="text-gray-500">{t("dashboard.crm.phone")}</dt>
                 <dd className="font-mono text-end" dir="ltr">{contact.phone || "—"}</dd>
               </div>
               <div className="flex justify-between gap-2">
-                <dt className="text-gray-400">{t("dashboard.crm.firstContact")}</dt>
+                <dt className="text-gray-500">{t("dashboard.crm.firstContact")}</dt>
                 <dd className="text-end">{formatDateTime(contact.firstContactAt)}</dd>
               </div>
             </dl>
             <button
               type="button"
               onClick={() => profileActionsRef.current.setShowAccountModal(true)}
-              className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand hover:bg-brand-dark text-white text-xs font-semibold px-3 py-2.5"
+              className="w-full inline-flex items-center justify-center gap-1.5 rounded-full bg-brand hover:bg-brand-hover text-white text-sm font-semibold px-4 h-11"
             >
               <HiOutlineUserAdd /> {t("dashboard.crm.account.open")}
             </button>
@@ -1649,10 +1673,10 @@ const CrmDashboard = () => {
               onSubmit={(e) => profileActionsRef.current.handleLink(e)}
               className="space-y-2 border-t border-gray-100 pt-4"
             >
-              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
                 <HiOutlineLink /> {t("dashboard.crm.linkToAccount")}
               </label>
-              <p className="text-[11px] text-gray-400">
+              <p className="text-[11px] text-gray-500">
                 {isMessenger ? t("dashboard.crm.linkHintMessenger") : t("dashboard.crm.linkHint")}
               </p>
               <div className="flex gap-2">
@@ -1662,12 +1686,12 @@ const CrmDashboard = () => {
                   onChange={(e) => profileActionsRef.current.setLinkPhone(e.target.value)}
                   placeholder="01xxxxxxxxx"
                   dir="ltr"
-                  className="flex-1 min-w-0 bg-gray-50 text-xs rounded-xl px-3 py-2 border border-transparent focus:border-violet-200 focus:bg-white focus:outline-none"
+                  className="flex-1 min-w-0 bg-[#f4f1fa] text-sm rounded-full px-4 h-11 border border-transparent focus:border-brand-violet focus:bg-white focus:outline-none"
                 />
                 <button
                   type="submit"
                   disabled={linking || !linkPhone.trim()}
-                  className="text-xs font-semibold rounded-xl bg-brand text-white px-3 disabled:bg-violet-300"
+                  className="text-xs font-semibold rounded-full bg-brand hover:bg-brand-hover text-white px-5 h-11 disabled:bg-violet-300"
                 >
                   {t("dashboard.crm.link")}
                 </button>
@@ -1684,28 +1708,28 @@ const CrmDashboard = () => {
       const student = profile.student;
 
       return (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
+        <div className="space-y-3">
+          <div className="flex flex-col items-center text-center gap-2 rounded-xl bg-[#f4f1fa] px-3 py-4">
             {u.profile_image_url ? (
-              <img src={getFileUrl(u.profile_image_url)} alt="" className="w-12 h-12 rounded-full object-cover" />
+              <img src={getFileUrl(u.profile_image_url)} alt="" className="w-16 h-16 rounded-full object-cover" />
             ) : (
-              <div className="w-12 h-12 rounded-full bg-violet-100 text-brand-purple flex items-center justify-center font-bold">
+              <div className="w-16 h-16 rounded-full bg-[#ede9fe] text-brand flex items-center justify-center text-xl font-semibold">
                 {initials(fullName)}
               </div>
             )}
-            <div className="min-w-0">
-              <div className="font-bold text-sm truncate">{fullName}</div>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                <span className="rounded bg-violet-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-brand-purple">
+            <div className="min-w-0 max-w-full">
+              <div className="font-semibold text-base truncate">{fullName}</div>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
+                <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[10px] font-bold uppercase text-brand">
                   {t(`dashboard.crm.roles.${u.role}`)}
                 </span>
                 {!u.is_active && (
-                  <span className="rounded bg-red-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-red-600">
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase text-red-600">
                     {t("dashboard.crm.inactive")}
                   </span>
                 )}
                 {!!u.phone_verified_manually && (
-                  <span className="rounded bg-green-50 px-1.5 py-0.5 text-[9px] font-bold uppercase text-green-700">
+                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-bold uppercase text-green-700">
                     {t("dashboard.crm.phoneVerified")}
                   </span>
                 )}
@@ -1715,14 +1739,14 @@ const CrmDashboard = () => {
 
           {u.role !== "student" && u.role !== "parent" && (
             <Section icon={HiOutlineIdentification} title={t("dashboard.crm.personalInfo")}>
-              <dl className="text-xs space-y-1.5">
+              <dl className="text-[13px] divide-y divide-[#f4f1fa] [&>div]:py-1.5">
                 {[
                   [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
                   [t("dashboard.crm.email"), u.email || "—"],
                   [t("dashboard.crm.joined"), formatDate(u.created_at)],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-3">
-                    <dt className="text-gray-400 shrink-0">{label}</dt>
+                    <dt className="text-gray-500 shrink-0">{label}</dt>
                     <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
                   </div>
                 ))}
@@ -1732,7 +1756,7 @@ const CrmDashboard = () => {
 
           {u.role === "student" && (
             <>
-              <dl className="text-xs space-y-1.5">
+              <dl className="text-[13px] divide-y divide-[#f4f1fa] [&>div]:py-1.5 rounded-xl border border-[#ebe6f5] bg-white px-3 py-1">
                 {[
                   [t("dashboard.crm.phone"), <span dir="ltr" className="font-mono">{u.phone}</span>],
                   [t("dashboard.crm.email"), u.email || "—"],
@@ -1740,7 +1764,7 @@ const CrmDashboard = () => {
                   [t("dashboard.crm.conversations"), profile.conversationCount],
                 ].map(([label, value]) => (
                   <div key={label} className="flex justify-between gap-3">
-                    <dt className="text-gray-400 shrink-0">{label}</dt>
+                    <dt className="text-gray-500 shrink-0">{label}</dt>
                     <dd className="font-medium text-end min-w-0 break-words">{value}</dd>
                   </div>
                 ))}
@@ -1768,11 +1792,11 @@ const CrmDashboard = () => {
 
           {renderTicketsSection()}
 
-          <div className="border-t border-gray-100 pt-3">
+          <div className="pt-1">
             <button
               type="button"
               onClick={() => profileActionsRef.current.handleUnlink()}
-              className="text-[11px] text-gray-400 hover:text-brand-purple underline"
+              className="min-h-10 text-xs text-gray-600 hover:text-brand-violet underline"
             >
               {t("dashboard.crm.unlink")}
             </button>
@@ -1783,9 +1807,9 @@ const CrmDashboard = () => {
 
     return (
       <div
-        className={`${showProfileMobile ? "flex" : "hidden xl:flex"} flex-col bg-white border border-gray-100 rounded-3xl shadow-sm overflow-hidden min-h-0`}
+        className={`${showProfileMobile ? "flex" : "hidden xl:flex"} flex-col bg-white rounded-2xl border border-[#ebe6f5] shadow-[0_4px_16px_rgba(46,8,84,0.08)] overflow-hidden min-h-0`}
       >
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2 px-3 pt-1 border-b border-[#ddd6ea] bg-[#f4f1fa]">
           <button
             type="button"
             onClick={() => profileActionsRef.current.setShowProfileMobile(false)}
@@ -1794,7 +1818,7 @@ const CrmDashboard = () => {
           >
             <HiOutlineArrowLeft className="rtl:rotate-180" />
           </button>
-          <div className="flex gap-1 bg-gray-50 rounded-xl p-1" role="tablist">
+          <div className="flex gap-1" role="tablist">
             {[
               ["contact", t("dashboard.crm.contactDetails"), null],
               ["internal", t("dashboard.crm.internal.tab"), HiOutlineLockClosed],
@@ -1806,12 +1830,12 @@ const CrmDashboard = () => {
                   role="tab"
                   aria-selected={rightTab === key}
                   onClick={() => profileActionsRef.current.setRightTab(key)}
-                  className={`flex items-center gap-1 text-[11px] font-semibold rounded-lg px-2.5 py-1.5 ${
+                  className={`flex items-center gap-1 text-xs font-semibold px-3 h-11 border-b-[3px] ${
                     rightTab === key
                       ? key === "internal"
-                        ? "bg-amber-100 text-amber-800 shadow-sm"
-                        : "bg-white text-brand-purple shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
+                        ? "border-amber-500 text-amber-800"
+                        : "border-brand-violet text-brand-violet"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {Icon && <Icon />}
@@ -1827,7 +1851,7 @@ const CrmDashboard = () => {
             <button
               type="button"
               onClick={() => profileActionsRef.current.loadProfile(selectedId)}
-              className="ms-auto text-gray-400 hover:text-brand-purple"
+              className="ms-auto text-gray-500 hover:text-brand-purple"
               aria-label={t("dashboard.common.retry")}
             >
               <HiOutlineRefresh className={profileLoading ? "animate-spin" : ""} />
@@ -1845,7 +1869,7 @@ const CrmDashboard = () => {
             />
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto min-h-0 p-4">{body()}</div>
+          <div className="flex-1 overflow-y-auto min-h-0 p-3">{body()}</div>
         )}
       </div>
     );
@@ -1882,7 +1906,7 @@ const CrmDashboard = () => {
             <HiOutlineChatAlt2 className="text-brand-purple" />
             {t("dashboard.crm.title")}
           </h1>
-          <p className="text-sm text-gray-400 font-light mt-1">
+          <p className="text-sm text-gray-500 font-light mt-1">
             {t("dashboard.crm.subtitle", { open: counts.open, unread: counts.unread })}
           </p>
           <div className="flex flex-wrap gap-2 mt-3" role="tablist" aria-label={t("dashboard.crm.channelAll")}>
@@ -1903,12 +1927,12 @@ const CrmDashboard = () => {
                   role="tab"
                   aria-selected={active}
                   onClick={() => setChannelFilter(value)}
-                  className={`flex items-center gap-1.5 text-xs font-semibold rounded-xl px-4 py-2 border transition-all ${
+                  className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-4 h-10 border transition-all ${
                     active
                       ? value
                         ? `${channelMeta(value).chip} border-transparent shadow-sm`
-                        : "bg-violet-50 text-brand-purple border-transparent shadow-sm"
-                      : "bg-white border-gray-200 text-gray-500 hover:bg-gray-50"
+                        : "bg-brand text-white border-transparent shadow-sm"
+                      : "bg-white border-[#ddd6ea] text-gray-600 hover:bg-[#f4f1fa]"
                   }`}
                 >
                   <Icon className="text-sm" />
@@ -1943,11 +1967,11 @@ const CrmDashboard = () => {
             </button>
             {showMentions && (
               <div className="absolute end-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-white border border-gray-100 rounded-2xl shadow-xl z-30 p-2">
-                <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-gray-500">
                   {t("dashboard.crm.internal.mentionsTitle")}
                 </div>
                 {mentionItems.length === 0 ? (
-                  <p className="px-2 py-6 text-center text-xs text-gray-400">{t("dashboard.crm.internal.noMentions")}</p>
+                  <p className="px-2 py-6 text-center text-xs text-gray-500">{t("dashboard.crm.internal.noMentions")}</p>
                 ) : (
                   <ul>
                     {mentionItems.map((m) => {
@@ -1965,7 +1989,7 @@ const CrmDashboard = () => {
                           >
                             <div className="flex items-center gap-1.5">
                               <span className="font-semibold truncate">{who}</span>
-                              <span className="ms-auto text-[10px] text-gray-400 shrink-0">{formatTime(m.created_at)}</span>
+                              <span className="ms-auto text-[10px] text-gray-500 shrink-0">{formatTime(m.created_at)}</span>
                             </div>
                             <div className="text-[11px] text-gray-500 line-clamp-2" dir="auto">
                               <span className="font-semibold">
@@ -2005,11 +2029,11 @@ const CrmDashboard = () => {
             {webhook && (
               <>
                 <div>
-                  <div className="text-gray-400">{t("dashboard.crm.webhookUrl")}</div>
+                  <div className="text-gray-500">{t("dashboard.crm.webhookUrl")}</div>
                   <div className="font-mono break-all" dir="ltr">{webhook.url}</div>
                 </div>
                 {webhook.urlProblem && (
-                  <p className="text-gray-400">{t("dashboard.crm.whatsappWebhookLocal")}</p>
+                  <p className="text-gray-500">{t("dashboard.crm.whatsappWebhookLocal")}</p>
                 )}
                 <div className="flex flex-wrap gap-2">
                   <SetupChip ok={webhook.sessionConfigured}>
@@ -2080,11 +2104,11 @@ const CrmDashboard = () => {
             {messenger && (
               <>
                 <div>
-                  <div className="text-gray-400">{t("dashboard.crm.messengerPage")}</div>
+                  <div className="text-gray-500">{t("dashboard.crm.messengerPage")}</div>
                   <div className="font-semibold">
                     {messenger.pageName || "—"}
                     {messenger.pageId && (
-                      <span className="ms-2 font-mono text-gray-400" dir="ltr">
+                      <span className="ms-2 font-mono text-gray-500" dir="ltr">
                         {messenger.pageId}
                       </span>
                     )}
@@ -2151,7 +2175,7 @@ const CrmDashboard = () => {
                     </SetupChip>
                   </div>
                   {messenger.urlProblem && (
-                    <p className="text-gray-400">{t("dashboard.crm.messengerWebhookLocal")}</p>
+                    <p className="text-gray-500">{t("dashboard.crm.messengerWebhookLocal")}</p>
                   )}
                 </div>
               </>
@@ -2181,11 +2205,11 @@ const CrmDashboard = () => {
             {instagram && (
               <>
                 <div>
-                  <div className="text-gray-400">{t("dashboard.crm.instagramAccount")}</div>
+                  <div className="text-gray-500">{t("dashboard.crm.instagramAccount")}</div>
                   <div className="font-semibold">
                     {instagram.username ? `@${instagram.username}` : instagram.name || "—"}
                     {instagram.igAccountId && (
-                      <span className="ms-2 font-mono text-gray-400" dir="ltr">
+                      <span className="ms-2 font-mono text-gray-500" dir="ltr">
                         {instagram.igAccountId}
                       </span>
                     )}
@@ -2212,12 +2236,31 @@ const CrmDashboard = () => {
                         : t("dashboard.crm.messengerSyncFailed")}
                     </SetupChip>
                   )}
+                  {instagram.tokenValid && instagram.tokenExpiresAt && (
+                    <SetupChip ok warn>
+                      {`Token expires ${formatDateTime(instagram.tokenExpiresAt)}`}
+                    </SetupChip>
+                  )}
                 </div>
                 {instagram.error && <SetupNotice>{instagram.error}</SetupNotice>}
                 {(instagram.details || []).map((d) => (
                   <SetupNotice key={d} warn>{d}</SetupNotice>
                 ))}
                 {instagram.lastSync?.error && <SetupNotice>{instagram.lastSync.error}</SetupNotice>}
+                {instagram.tokenRefreshed && (
+                  <SetupNotice>
+                    Access token was close to expiring, so it was automatically renewed and saved to the backend .env file.
+                  </SetupNotice>
+                )}
+                {instagram.tokenRefreshError && (
+                  <SetupNotice warn>{`Couldn't automatically renew the Instagram token: ${instagram.tokenRefreshError}`}</SetupNotice>
+                )}
+                {!instagram.appCredsSet && instagram.tokenValid && (
+                  <SetupNotice warn>
+                    Set INSTAGRAM_APP_ID and INSTAGRAM_APP_SECRET in the backend .env to enable automatic token
+                    renewal and expiry tracking (both are already present but currently unused).
+                  </SetupNotice>
+                )}
               </>
             )}
             {instagramError && (
@@ -2238,7 +2281,7 @@ const CrmDashboard = () => {
       )}
 
       <div
-        className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[320px_minmax(0,1fr)_340px]"
+        className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)]"
         style={{ height: "calc(100vh - 265px)", minHeight: 520 }}
       >
         {renderConversationList()}

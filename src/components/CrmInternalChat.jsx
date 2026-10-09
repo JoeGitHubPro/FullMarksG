@@ -28,7 +28,7 @@ const NoteBody = ({ body, names, meName }) => {
         className={`font-semibold rounded px-0.5 ${
           meName && part.toLowerCase() === `@${meName.toLowerCase()}`
             ? "bg-amber-200 text-amber-900"
-            : "text-brand-purple"
+            : "text-brand-violet"
         }`}
       >
         {part}
@@ -191,13 +191,13 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
       <div className="flex items-center gap-1.5 px-4 py-2 bg-amber-50 border-b border-amber-100 text-[11px] text-amber-800">
         <HiOutlineLockClosed /> {t("dashboard.crm.internal.privateHint")}
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 p-4 space-y-2.5">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 p-3 space-y-2 bg-[#faf8fe]">
         {loading ? (
           <div className="h-32 flex items-center justify-center">
             <div className="w-6 h-6 border-4 border-brand border-t-transparent rounded-full animate-spin" />
           </div>
         ) : notes.length === 0 ? (
-          <p className="text-center text-xs text-gray-400 py-8">{t("dashboard.crm.internal.empty")}</p>
+          <p className="text-center text-xs text-gray-500 py-8">{t("dashboard.crm.internal.empty")}</p>
         ) : (
           notes.map((n) => {
             const mine = n.author_id === currentUserId;
@@ -205,18 +205,18 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
             return (
               <div key={n.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                 <div
-                  className={`max-w-[90%] rounded-2xl px-3 py-2 text-xs border ${
+                  className={`max-w-[92%] rounded-lg px-3 py-2 text-[13px] leading-snug shadow-sm ${
                     mentionsMe
-                      ? "bg-amber-50 border-amber-300"
+                      ? "bg-amber-50 border border-amber-300"
                       : mine
-                        ? "bg-violet-50 border-violet-100"
-                        : "bg-yellow-50/60 border-yellow-100"
+                        ? "bg-[#ede9fe] rounded-ee-none"
+                        : "bg-white border border-[#ebe6f5] rounded-es-none"
                   }`}
                 >
-                  <div className="text-[10px] font-semibold text-gray-500 mb-0.5">
+                  <div className="text-[11px] font-bold text-brand-violet mb-0.5">
                     {[n.author_first_name, n.author_last_name].filter(Boolean).join(" ") || "—"}
                     {n.author_role && (
-                      <span className="ms-1 uppercase text-[9px] text-gray-400">
+                      <span className="ms-1 uppercase text-[10px] text-gray-500">
                         {t(`dashboard.crm.roles.${n.author_role}`)}
                       </span>
                     )}
@@ -224,7 +224,7 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
                   <div className="whitespace-pre-wrap break-words" dir="auto">
                     <NoteBody body={n.body} names={staffNames} meName={meName} />
                   </div>
-                  <div className="text-[9px] text-gray-400 mt-1">{fmt(n.created_at)}</div>
+                  <div className="text-[10px] text-gray-500 mt-1">{fmt(n.created_at)}</div>
                 </div>
               </div>
             );
@@ -232,7 +232,7 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
         )}
       </div>
 
-      <form onSubmit={send} className="relative border-t border-gray-100 p-3">
+      <form onSubmit={send} className="relative border-t border-[#ddd6ea] bg-[#f4f1fa] p-2.5">
         {picker && candidates.length > 0 && (
           <ul className="absolute bottom-full mb-1 inset-x-3 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10">
             {candidates.map((p, i) => (
@@ -248,7 +248,7 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
                   }`}
                 >
                   <span className="font-semibold">{p.name}</span>
-                  <span className="ms-auto text-[9px] uppercase text-gray-400">
+                  <span className="ms-auto text-[10px] uppercase text-gray-500">
                     {t(`dashboard.crm.roles.${p.role}`)}
                   </span>
                 </button>
@@ -275,12 +275,12 @@ const CrmInternalChat = ({ conversationId, staff, currentUserId, t, onActivity }
             maxLength={4000}
             dir="auto"
             placeholder={t("dashboard.crm.internal.placeholder")}
-            className="flex-1 resize-none bg-amber-50/60 text-xs rounded-2xl px-3 py-2.5 border border-transparent focus:border-amber-200 focus:bg-white focus:outline-none"
+            className="flex-1 resize-none bg-white text-[13px] rounded-2xl px-3.5 py-2.5 border border-transparent focus:border-amber-400 focus:outline-none"
           />
           <button
             type="submit"
             disabled={sending || !draft.trim()}
-            className="shrink-0 h-10 px-3 rounded-2xl bg-amber-500 hover:bg-amber-600 disabled:bg-amber-200 text-white text-xs font-semibold flex items-center gap-1"
+            className="shrink-0 h-11 px-4 rounded-full bg-amber-600 hover:bg-amber-700 disabled:bg-amber-200 text-white text-xs font-semibold flex items-center gap-1"
           >
             <HiOutlinePaperAirplane className="rotate-90 rtl:-rotate-90" />
             {t("dashboard.crm.internal.send")}

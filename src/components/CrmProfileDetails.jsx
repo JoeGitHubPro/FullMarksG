@@ -41,30 +41,33 @@ const fullName = (o, a = "first_name", b = "last_name") =>
 export const CrmSection = ({ icon: Icon, title, count, children, defaultOpen = true }) => {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-t border-gray-100 pt-3">
+    <div className="rounded-xl border border-[#ebe6f5] bg-white overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2"
+        aria-expanded={open}
+        className={`w-full min-h-11 px-3 flex items-center gap-2 text-xs font-bold text-brand hover:bg-[#faf8fe] ${
+          open ? "bg-[#f4f1fa]" : ""
+        }`}
       >
-        {Icon && <Icon className="text-brand-purple text-sm" />}
+        {Icon && <Icon className="text-brand-violet text-base shrink-0" />}
         <span className="text-start">{title}</span>
         {typeof count === "number" && (
-          <span className="rounded-md bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{count}</span>
+          <span className="rounded-full bg-[#ede9fe] px-2 py-0.5 text-[11px] text-brand">{count}</span>
         )}
-        <HiOutlineChevronDown className={`ms-auto transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
+        <HiOutlineChevronDown className={`ms-auto text-gray-500 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
       </button>
-      {open && children}
+      {open && <div className="p-3">{children}</div>}
     </div>
   );
 };
 
 export const InfoList = ({ rows }) => (
-  <dl className="text-xs space-y-1.5">
+  <dl className="text-[13px] divide-y divide-[#f4f1fa]">
     {rows.filter(Boolean).map(([label, value]) => (
-      <div key={label} className="flex justify-between gap-3">
-        <dt className="text-gray-400 shrink-0">{label}</dt>
-        <dd className="font-medium text-end min-w-0 break-words">{value ?? "—"}</dd>
+      <div key={label} className="flex justify-between gap-3 py-1.5 first:pt-0 last:pb-0">
+        <dt className="text-gray-500 shrink-0">{label}</dt>
+        <dd className="font-semibold text-end min-w-0 break-words">{value ?? "—"}</dd>
       </div>
     ))}
   </dl>
@@ -72,14 +75,14 @@ export const InfoList = ({ rows }) => (
 
 const Chip = ({ tone = "gray", children }) => {
   const tones = {
-    gray: "bg-gray-100 text-gray-500",
+    gray: "bg-gray-100 text-gray-600",
     green: "bg-green-50 text-green-700",
     red: "bg-red-50 text-red-600",
     amber: "bg-amber-50 text-amber-700",
-    violet: "bg-violet-50 text-brand-purple",
+    violet: "bg-[#ede9fe] text-brand",
   };
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${tones[tone] || tones.gray}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${tones[tone] || tones.gray}`}>
       {children}
     </span>
   );
@@ -105,9 +108,9 @@ const SummaryTiles = ({ summary, t }) => {
   return (
     <div className="grid grid-cols-2 gap-2">
       {tiles.map(([label, value]) => (
-        <div key={label} className="rounded-xl bg-gray-50 px-3 py-2">
-          <div className="text-[10px] text-gray-400">{label}</div>
-          <div className="text-xs font-bold truncate" dir="auto">{value}</div>
+        <div key={label} className="rounded-xl bg-[#f4f1fa] px-3 py-2.5">
+          <div className="text-[11px] text-gray-600">{label}</div>
+          <div className="text-sm font-bold text-brand truncate" dir="auto">{value}</div>
         </div>
       ))}
     </div>
@@ -162,7 +165,7 @@ const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
         <button
           type="button"
           onClick={() => setMode("days")}
-          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+          className={`px-2 py-1 rounded-md text-[11px] font-bold ${
             mode === "days" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
           }`}
         >
@@ -171,7 +174,7 @@ const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
         <button
           type="button"
           onClick={() => setMode("date")}
-          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+          className={`px-2 py-1 rounded-md text-[11px] font-bold ${
             mode === "date" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
           }`}
         >
@@ -195,12 +198,12 @@ const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
         />
       )}
-      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="px-2 py-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700"
+          className="px-2 py-1 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
         >
           {t("dashboard.common.cancel")}
         </button>
@@ -208,7 +211,7 @@ const ExtendAccessForm = ({ e, studentId, t, onDone, onCancel }) => {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-2.5 py-1 rounded-md bg-brand text-white text-[10px] font-bold hover:bg-brand-dark disabled:opacity-50"
+          className="px-2.5 py-1 rounded-md bg-brand text-white text-[11px] font-bold hover:bg-brand-dark disabled:opacity-50"
         >
           {saving ? t("dashboard.common.saving") : t("dashboard.common.save")}
         </button>
@@ -266,7 +269,7 @@ const CodeExtendForm = ({ c, studentId, t, onDone, onCancel }) => {
         <button
           type="button"
           onClick={() => setMode("days")}
-          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+          className={`px-2 py-1 rounded-md text-[11px] font-bold ${
             mode === "days" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
           }`}
         >
@@ -275,7 +278,7 @@ const CodeExtendForm = ({ c, studentId, t, onDone, onCancel }) => {
         <button
           type="button"
           onClick={() => setMode("date")}
-          className={`px-2 py-1 rounded-md text-[10px] font-bold ${
+          className={`px-2 py-1 rounded-md text-[11px] font-bold ${
             mode === "date" ? "bg-brand-purple text-white" : "bg-gray-100 text-gray-500"
           }`}
         >
@@ -299,12 +302,12 @@ const CodeExtendForm = ({ c, studentId, t, onDone, onCancel }) => {
           className="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-xs"
         />
       )}
-      {error && <p className="text-[10px] text-red-600">{error}</p>}
+      {error && <p className="text-[11px] text-red-600">{error}</p>}
       <div className="flex justify-end gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="px-2 py-1 text-[10px] font-semibold text-gray-500 hover:text-gray-700"
+          className="px-2 py-1 text-[11px] font-semibold text-gray-500 hover:text-gray-700"
         >
           {t("dashboard.common.cancel")}
         </button>
@@ -312,7 +315,7 @@ const CodeExtendForm = ({ c, studentId, t, onDone, onCancel }) => {
           type="button"
           onClick={handleSave}
           disabled={saving}
-          className="px-2.5 py-1 rounded-md bg-brand text-white text-[10px] font-bold hover:bg-brand-dark disabled:opacity-50"
+          className="px-2.5 py-1 rounded-md bg-brand text-white text-[11px] font-bold hover:bg-brand-dark disabled:opacity-50"
         >
           {saving ? t("dashboard.common.saving") : t("dashboard.common.save")}
         </button>
@@ -332,7 +335,7 @@ const CodeRow = ({ c, studentId, t, onAccessExtended }) => {
     <li className="text-xs">
       <div className="flex items-start gap-2">
         <span className="font-mono font-bold text-brand-purple shrink-0" dir="ltr">{c.code}</span>
-        <span className="text-gray-400 text-[10px] flex-1 text-end">
+        <span className="text-gray-500 text-[11px] flex-1 text-end">
           {label}
           <span className="block">{fmtDate(c.redeemed_at)}</span>
         </span>
@@ -342,7 +345,7 @@ const CodeRow = ({ c, studentId, t, onAccessExtended }) => {
           <button
             type="button"
             onClick={() => setShowExtend(true)}
-            className="flex items-center gap-1 text-brand-purple font-bold shrink-0 hover:underline text-[10px]"
+            className="flex items-center gap-1 text-brand-purple font-bold shrink-0 hover:underline text-[11px]"
           >
             <HiOutlineClock />
             {t("dashboard.crm.profile.extendAccess")}
@@ -371,7 +374,7 @@ const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
   const g = e.grades;
   const active = Number(e.is_active);
   return (
-    <li className="rounded-xl bg-gray-50 px-3 py-2 space-y-1.5">
+    <li className="rounded-xl bg-[#faf8fe] border border-[#f4f1fa] px-3 py-2.5 space-y-1.5">
       <div className="flex items-start gap-2">
         <span className="text-xs font-semibold flex-1" dir="auto">{e.course_title}</span>
         <Chip tone={active ? "green" : "gray"}>
@@ -382,7 +385,7 @@ const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
               : t("dashboard.crm.expired")}
         </Chip>
       </div>
-      <div className="text-[10px] text-gray-400 flex items-center gap-2">
+      <div className="text-[11px] text-gray-500 flex items-center gap-2">
         <span>
           {e.instructor_name && <>{e.instructor_name} · </>}
           {t(`dashboard.crm.methods.${e.enrollment_method || "admin"}`)} · {fmtDate(e.enrolled_at)}
@@ -413,21 +416,21 @@ const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
       )}
       {e.videos?.total > 0 && (
         <div className="space-y-0.5">
-          <div className="flex items-center gap-1 text-[10px] text-gray-500">
+          <div className="flex items-center gap-1 text-[11px] text-gray-500">
             <HiOutlinePlay />
             {t("dashboard.crm.profile.videosWatched", {
               done: e.videos.completed,
               total: e.videos.total,
             })}
             {e.videos.lastWatchedAt && (
-              <span className="ms-auto text-gray-400">{fmtDate(e.videos.lastWatchedAt)}</span>
+              <span className="ms-auto text-gray-500">{fmtDate(e.videos.lastWatchedAt)}</span>
             )}
           </div>
           <ProgressBar value={e.videos.completed} total={e.videos.total} />
         </div>
       )}
       {g && (g.assignments.total > 0 || g.quizzes.total > 0) && (
-        <div className="text-[10px] text-gray-500 space-y-0.5">
+        <div className="text-[11px] text-gray-500 space-y-0.5">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             <HiOutlineChartBar />
             {g.averagePercent != null && (
@@ -488,7 +491,7 @@ const CourseCard = ({ e, studentId, t, onAccessExtended }) => {
 /** All details of one student. `compact` = shown inside a parent's child card. */
 export const StudentDetails = ({ data, t, language, compact = false, contactName, nameLabel, onAccessExtended }) => {
   const s = data?.student;
-  if (!s) return <p className="text-xs text-gray-400">{t("dashboard.crm.noStudentRecord")}</p>;
+  if (!s) return <p className="text-xs text-gray-500">{t("dashboard.crm.noStudentRecord")}</p>;
   const verifiedBy = fullName(s, "verified_by_first_name", "verified_by_last_name");
 
   return (
@@ -520,7 +523,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
                 <span className="text-green-700">
                   {t("dashboard.crm.profile.verified")}
                   {(verifiedBy || s.verified_at) && (
-                    <span className="block text-[10px] text-gray-400">
+                    <span className="block text-[11px] text-gray-500">
                       {[verifiedBy, s.verified_at ? fmtDate(s.verified_at) : null].filter(Boolean).join(" · ")}
                     </span>
                   )}
@@ -550,14 +553,14 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
               />
               {data.siblings?.length > 0 && (
                 <div>
-                  <div className="text-[10px] font-bold uppercase text-gray-400 mb-1">
+                  <div className="text-[11px] font-bold uppercase text-gray-500 mb-1">
                     {t("dashboard.crm.profile.siblings")}
                   </div>
                   <ul className="space-y-1">
                     {data.siblings.map((sib) => (
                       <li key={sib.user_id} className="text-xs flex gap-2">
                         <span className="font-semibold flex-1">{fullName(sib)}</span>
-                        <span className="text-[10px] text-gray-400">
+                        <span className="text-[11px] text-gray-500">
                           {sib.academic_level_name || ""}
                           {sib.phone && <span dir="ltr" className="block font-mono">{sib.phone}</span>}
                         </span>
@@ -568,7 +571,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
               )}
             </div>
           ) : (
-            <p className="text-xs text-gray-400">{t("dashboard.crm.profile.noGuardian")}</p>
+            <p className="text-xs text-gray-500">{t("dashboard.crm.profile.noGuardian")}</p>
           )}
         </CrmSection>
       )}
@@ -591,7 +594,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+          <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
         )}
       </CrmSection>
 
@@ -609,7 +612,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+          <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
         )}
       </CrmSection>
 
@@ -620,15 +623,15 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
               <li key={p.id} className="text-xs flex items-start gap-2">
                 <span className="flex-1 min-w-0">
                   <span className="font-medium block truncate">{p.item_title || `#${p.item_id}`}</span>
-                  <span className="text-[10px] text-gray-400">{fmtDate(p.created_at)}</span>
+                  <span className="text-[11px] text-gray-500">{fmtDate(p.created_at)}</span>
                 </span>
                 <span className="text-end shrink-0">
                   <span className="font-semibold block">
                     {Number(p.amount).toFixed(2)} {p.currency}
                   </span>
                   <span
-                    className={`text-[9px] font-bold uppercase ${
-                      p.status === "paid" ? "text-green-600" : p.status === "pending" ? "text-amber-600" : "text-gray-400"
+                    className={`text-[10px] font-bold uppercase ${
+                      p.status === "paid" ? "text-green-600" : p.status === "pending" ? "text-amber-600" : "text-gray-500"
                     }`}
                   >
                     {t(`dashboard.crm.paymentStatus.${p.status}`)}
@@ -638,7 +641,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+          <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
         )}
       </CrmSection>
 
@@ -648,14 +651,14 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
             {data.notes.map((n) => (
               <li key={n.id} className="rounded-xl bg-amber-50/60 px-3 py-2 text-xs">
                 <div className="whitespace-pre-wrap" dir="auto">{n.note}</div>
-                <div className="text-[10px] text-gray-400 mt-1">
+                <div className="text-[11px] text-gray-500 mt-1">
                   {fullName(n, "author_first_name", "author_last_name")} · {fmtDate(n.created_at)}
                 </div>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+          <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
         )}
       </CrmSection>
 
@@ -667,7 +670,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
                 <span className="block truncate text-gray-600" title={d.user_agent || ""}>
                   {(d.user_agent || "—").slice(0, 60)}
                 </span>
-                <span className="text-[10px] text-gray-400">
+                <span className="text-[11px] text-gray-500">
                   {t("dashboard.crm.profile.lastSeen")}: {fmtDateTime(d.last_seen_at)}
                   {d.ip_address && <> · <span dir="ltr">{d.ip_address}</span></>}
                 </span>
@@ -675,7 +678,7 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-gray-400">{t("dashboard.crm.none")}</p>
+          <p className="text-xs text-gray-500">{t("dashboard.crm.none")}</p>
         )}
       </CrmSection>
 
@@ -684,9 +687,9 @@ export const StudentDetails = ({ data, t, language, compact = false, contactName
           <ul className="space-y-1">
             {data.accountTickets.map((tk) => (
               <li key={tk.id} className="text-xs flex gap-2">
-                <span className="font-mono text-gray-400">#{tk.id}</span>
+                <span className="font-mono text-gray-500">#{tk.id}</span>
                 <span className="flex-1 truncate" dir="auto">{tk.subject}</span>
-                <span className="text-[9px] font-bold uppercase text-brand-purple">
+                <span className="text-[10px] font-bold uppercase text-brand-purple">
                   {t(`dashboard.crm.ticket.status.${tk.status}`)}
                 </span>
               </li>
@@ -702,26 +705,27 @@ const ChildCard = ({ child, t, language, defaultOpen, onAccessExtended }) => {
   const [open, setOpen] = useState(defaultOpen);
   const s = child.student;
   return (
-    <li className="rounded-2xl border border-gray-100">
+    <li className="rounded-xl border border-[#ebe6f5] bg-white">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-start"
+        aria-expanded={open}
+        className="w-full min-h-12 flex items-center gap-2 px-3 py-2 text-start hover:bg-[#faf8fe] rounded-xl"
       >
-        <span className="w-8 h-8 rounded-full bg-violet-100 text-brand-purple flex items-center justify-center text-[11px] font-bold shrink-0">
+        <span className="w-9 h-9 rounded-full bg-[#ede9fe] text-brand flex items-center justify-center text-xs font-bold shrink-0">
           {(s.first_name || "?")[0]}
           {(s.last_name || "")[0] || ""}
         </span>
         <span className="flex-1 min-w-0">
           <span className="block text-xs font-bold truncate">{fullName(s)}</span>
-          <span className="block text-[10px] text-gray-400 truncate">
+          <span className="block text-[11px] text-gray-500 truncate">
             {[s.academic_level_name, t(`dashboard.crm.studentTypes.${s.student_type}`)].filter(Boolean).join(" · ")}
           </span>
         </span>
-        <span className="text-[10px] text-gray-400 shrink-0">
+        <span className="text-[11px] text-gray-500 shrink-0">
           {t("dashboard.crm.profile.coursesCount", { count: child.summary?.activeCourses ?? 0 })}
         </span>
-        <HiOutlineChevronDown className={`text-gray-400 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
+        <HiOutlineChevronDown className={`text-gray-500 transition-transform ${open ? "" : "-rotate-90 rtl:rotate-90"}`} />
       </button>
       {open && (
         <div className="px-3 pb-3">
@@ -767,7 +771,7 @@ export const ParentDetails = ({ data, user, t, language, onAccessExtended }) => 
           ))}
         </ul>
       ) : (
-        <p className="text-xs text-gray-400">{t("dashboard.crm.profile.noChildren")}</p>
+        <p className="text-xs text-gray-500">{t("dashboard.crm.profile.noChildren")}</p>
       )}
     </CrmSection>
   </div>
